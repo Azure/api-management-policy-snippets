@@ -1,0 +1,40 @@
+<!-- This snippet shows how to use a few policies to add a capability to a backend service, i.e. accept a name of the place instead of latitude and longitude in a wether forecast API. -->
+
+<!-- https://darksky.net/dev API was used as a backend service in this example. The snippet contains enough information for reconstituting the setup and testing the policy. -->
+
+<!-- Copy the following snippet into the inbound section and look at the trace window to see it work. -->
+
+
+<!-- Check if lat/long has already been cached for this place and fetch it into a variable -->
+<cache-lookup-value key="@(context.Request.MatchedParameters.GetValueOrDefault("place"))" variable-name="latlong"/>
+
+<!-- If no lat/long found, use external API to get lat/long of the place and cache it. -->
+<choose>
+    <when condition="@(!context.Variables.ContainsKey("latlong"))">
+
+        <!-- Lookup lat/long for the place. -->
+        <send-request mode="new" response-variable-name="response" timeout="10" ignore-error="false">
+            <set-url>
+                        @{
+                            var code = context.Request.MatchedParameters.GetValueOrDefault("place");
+                            var key = "{{google-geo-api-key}}";
+                            return $"https://maps.googleapis.com/maps/api/geocode/json?address={code}&key={key}";
+                        }
+                    </set-url>
+            <set-method>GET</set-method>
+        </send-request>
+
+        <!-- Extract a JSON object containing lat/long from the response and serialize it into a variable. -->
+        <set-variable name="latlong" value="@(((IResponse)context.Variables["response"]).Body.As<JObject>()["results"][0]["geometry"]["location"].ToString())"/>
+
+        <!-- Cache lat/long for a an hour (coould be for much longer of course, since places don't move very often). -->
+            <cache-store-value key="@(context.Request.MatchedParameters.GetValueOrDefault("latlong"))" value="@((string)context.Variables["latlong"])" duration="3600"/>
+    </when>
+</choose>
+
+<!-- Change forwarding URL to the form expected by the backend, i.e. containing the key and lat/lng.  -->
+<rewrite-uri template="@{
+            var loc = JObject.Parse((string)context.Variables["latlong"]);
+            var lat = loc["lat"];
+            var lng = loc["lng"];
+            return $"forecast/{{dark-sky-api-key}}/{lat},{lng}";}"/>

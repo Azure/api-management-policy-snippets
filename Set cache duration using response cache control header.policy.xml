@@ -1,0 +1,10 @@
+<!-- This snippet demonstrates how to set reponse cache duration using maxAge value in Cache-Control header sent by the backend. -->
+<!-- Copy this snippet into the outbound section. -->
+<!-- Can be easily tested by setting up an API and operation mapped to GET http://httpbin.org/cache/{duration} -->
+
+<cache-store duration="@{
+		var header = context.Response.Headers.GetValueOrDefault("Cache-Control","");
+		var maxAge = Regex.Match(header, @"max-age=(?<maxAge>\d+)").Groups["maxAge"]?.Value;
+		return (!string.IsNullOrEmpty(maxAge))?int.Parse(maxAge):300;
+	}"
+ />
