@@ -1,0 +1,9 @@
+<!-- This snippet demonstrates how to add a Forwarded header in the inbound request to allow the backend API to construct proper URLs.
+
+<!-- Forwarded header is defined in the IETF RFC 7239 https://tools.ietf.org/html/rfc7239  -->
+
+<!-- Copy this snippet into the inbound section. -->
+
+<set-header exists-action="override" name="Forwarded">
+    <value>@("proto=" + context.Request.OriginalUrl.Scheme + ";host=" + context.Request.OriginalUrl.Host + ";")</value>
+</set-header>
