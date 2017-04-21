@@ -1,0 +1,15 @@
+<!-- This snippet shows how to authorize access to your endpoints using a google as an OAuth token provider -->
+
+<!-- Copy the following snippet into the inbound section -->
+
+<!-- Note the clock skew setting. This was required to prevent some intermittent errors and can be tailored to suit. please test -->
+<validate-jwt header-name="Authorization" failed-validation-httpcode="401" clock-skew="120" failed-validation-error-message="Unauthorized. Access token is missing or invalid.">
+	<openid-config url="https://accounts.google.com/.well-known/openid-configuration" />
+	<!-- Without this section, only https://accouonts.google.com is allowed however the .net google client library often returns an issue o accounts.google.com -->
+	<!-- Having both here ensures all usage scenarios work -->
+	<issuers>
+		<issuer>accounts.google.com</issuer>
+		<issuer>https://accounts.google.com</issuer>
+	</issuers>
+</validate-jwt>
+		
