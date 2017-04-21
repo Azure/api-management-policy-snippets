@@ -12,4 +12,3 @@
 		<issuer>https://accounts.google.com</issuer>
 	</issuers>
 </validate-jwt>
-		
