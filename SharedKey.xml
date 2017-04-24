@@ -1,0 +1,74 @@
+<policies>
+<inbound>
+<base />
+<!-- note use of properties -->
+<set-variable name="accessKey" value="{{storageAccountAccessKey}}" />
+<set-variable name="storageAccount" value="{{storageAccountName}}" />
+<set-variable name="Content-Type" value="application/json" />
+<set-variable name="resourcePath" value="TableName()" />
+<set-variable name="x-ms-date" value="@(DateTime.UtcNow.ToString("R"))" />
+<set-header name="Content-Type" exists-action="override">
+<value>@((string)context.Variables["Content-Type"])</value>
+</set-header>
+<set-header name="Accept" exists-action="override">
+<value>application/json;odata=nometadata</value>
+</set-header>
+<set-header name="Accept-Charset" exists-action="override">
+<value>UTF-8</value>
+</set-header>
+<set-header name="x-ms-date" exists-action="override">
+<value>@((string)context.Variables["x-ms-date"])</value>
+</set-header>
+<set-header name="x-ms-version" exists-action="override">
+<value>2015-04-05</value>
+</set-header>
+<!-- Beginning with version 2009-09-19, the Table service requires that all REST calls include the DataServiceVersion and MaxDataServiceVersion headers. See https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/setting-the-odata-data-service-version-headers for more information. -->
+<set-header name="MaxDataServiceVersion" exists-action="override">
+<value>3.0</value>
+</set-header>
+<set-header name="DataServiceVersion" exists-action="override">
+<value>1.0;NetFx</value>
+</set-header>
+<set-variable name="CanonicalizedResource" value="@{
+// /{storageAccount}/{resourcePath}
+return string.Format("/{0}/{1}",(string)context.Variables["storageAccount"],(string)context.Variables["resourcePath"]);
+}" />
+<!-- SharedKeyLite is legaacy and SharedKey preferred, but here it is if needed (1 of 2) -->
+<!--set-variable name="SharedKeyLite" value="@{
+// SharedKeyLite is there for backwards compatibility. SharedKey is preferred for new work.
+// System.Security.Cryptography.HMACSHA256 hasher = new System.Security.Cryptography.HMACSHA256(Convert.FromBase64String((string)context.Variables["accessKey"]));
+// return Convert.ToBase64String(hasher.ComputeHash(System.Text.Encoding.UTF8.GetBytes(string.Format("{0}\n{1}",(string)context.Variables["x-ms-date"],(string)context.Variables["CanonicalizedResource"]))));
+}" /-->
+<set-variable name="StringToSign" value="@{
+// https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/authentication-for-the-azure-storage-services
+// {VERB}\n{Content-MD5}\n{Content-Type}\n{Date}\n{CanonicalizedResource} e.g. "GET\n\n{0}\n{1}\n{2}",
+return string.Format(
+"GET\n\n{0}\n{1}\n{2}",
+(string)context.Variables["Content-Type"],
+(string)context.Variables["x-ms-date"],
+(string)context.Variables["CanonicalizedResource"]);
+}" />
+<set-variable name="SharedKey" value="@{
+// https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/authentication-for-the-azure-storage-services
+// Hash-based Message Authentication Code (HMAC) using SHA256 hash
+System.Security.Cryptography.HMACSHA256 hasher = new System.Security.Cryptography.HMACSHA256(Convert.FromBase64String((string)context.Variables["accessKey"]));
+return Convert.ToBase64String(hasher.ComputeHash(System.Text.Encoding.UTF8.GetBytes((string)context.Variables["StringToSign"])));
+}" />
+<set-header name="Authorization" exists-action="override">
+<value>@(string.Format("SharedKey {0}:{1}", (string)context.Variables["storageAccount"], (string)context.Variables["SharedKey"]))</value>
+<!-- SharedKeyLite is legaacy and SharedKey preferred, but here it is if needed (2 of 2) -->
+<!--value>@(string.Format("SharedKeyLite {0}:{1}", (string)context.Variables["storageAccount"], (string)context.Variables["SharedKeyLite"]))</value-->
+</set-header>
+<!-- You probably have a $filter to add here -->
+<rewrite-uri template="/TableName()" />
+</inbound>
+<backend>
+<base />
+</backend>
+<outbound>
+<base />
+</outbound>
+<on-error>
+<base />
+</on-error>
+</policies>
