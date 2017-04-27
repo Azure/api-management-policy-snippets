@@ -1,0 +1,18 @@
+<!-- This snippet demonstrates how to reroute messages based on the size of the body -->
+
+<!-- The message body size is checked via the Content-Length header -->
+
+<!-- The when condition checks if the message is smaller than 256000 bytes, or almost 256 KB to comply with the limitation of Azure Service Bus -->   
+
+<!-- If it is larger, you can reroute the request to somewhere else -->
+        
+<set-variable name="bodySize" value="@(context.Request.Headers["Content-Length"][0])"/>
+<choose>
+	<when condition="@(int.Parse(context.Variables.GetValueOrDefault<string>("bodySize"))<256000)">
+		
+	</when>
+	<otherwise>
+		<rewrite-uri template=""/>
+		<set-backend-service base-url=""/>
+	</otherwise>
+</choose>
