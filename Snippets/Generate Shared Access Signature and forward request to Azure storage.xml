@@ -1,3 +1,5 @@
+<!-- This snippet shows how to solve generate Shared Access Signature (https://docs.microsoft.com/en-us/azure/storage/storage-dotnet-shared-access-signature-part-1) using expressions and forward the request to Azure storage with rewrite-uri policy -->
+
 <policies>
     <inbound>
 
