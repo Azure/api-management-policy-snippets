@@ -1,0 +1,28 @@
+<!-- This snippet demonstrates how to add a header containing a correlation id to the inbound request. -->
+<!-- The id could be used to correlate requests forwarded by Azure API Management to requests in your backend. -->
+<!-- We are using a COMB GUID as an id value for efficient query performance. -->
+
+<!-- NOTE: If COMB format is not needed, context.RequestId should be used as a value of correlation id. context.RequestId is unique for each requets and is stored as part of gateway log records. -->
+
+<!-- Copy the following snippet into the inbound section. Applying this snippet at the global level will ensure that correlation id will be added to all requests. -->
+<set-header name="correlationid" exists-action="skip">
+	<value>@{ var guidBinary = new byte[16];
+				Array.Copy(Guid.NewGuid().ToByteArray(), 0, guidBinary, 0, 10);
+				long time = DateTime.Now.Ticks;
+				byte[] bytes = new byte[8];
+				unchecked
+				{
+					bytes[7] = (byte)(time >> 56);
+					bytes[6] = (byte)(time >> 48);
+					bytes[5] = (byte)(time >> 40);
+					bytes[4] = (byte)(time >> 32);
+					bytes[3] = (byte)(time >> 24);
+					bytes[2] = (byte)(time >> 16);
+					bytes[1] = (byte)(time >> 8);
+					bytes[0] = (byte)(time);
+				}
+				Array.Copy(bytes, 0, guidBinary, 8, 6);
+				return new Guid(guidBinary).ToString();
+			}
+	</value>
+</set-header>
