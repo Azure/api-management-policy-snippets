@@ -1,0 +1,71 @@
+<policies>
+	<inbound>
+		<base />
+		<!-- Get Session Token -->
+		<set-body template="liquid">
+			<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns="http://tempuri.org/">
+				<soap:Body>
+					<Session />
+				</soap:Body>
+			</soap:Envelope>
+		</set-body>
+		<send-request mode="new" timeout="20" response-variable-name="SessionTokenSOAPResponse" ignore-error="false">
+			<set-url>http://samplessoap.azurewebsites.net/UserSession.asmx</set-url>
+			<set-method>POST</set-method>
+			<set-header name="SOAPAction" exists-action="override">
+				<value>http://tempuri.org/Session</value>
+			</set-header>
+			<set-header name="Content-Type" exists-action="override">
+				<value>text/xml</value>
+			</set-header>
+			<set-body>@(context.Request.Body.As<String>(preserveContent: true))</set-body>
+		</send-request>
+		<set-variable name="SessionToken" value="@{
+                                                        XNamespace soapNS = "http://schemas.xmlsoap.org/soap/envelope/";
+                                                        XNamespace responseNS = "http://tempuri.org/";
+                                                        
+                                                        var element = ((IResponse)context.Variables["SessionTokenSOAPResponse"]).Body.As<XDocument>(preserveContent: true)
+                                                                            .Elements(soapNS + "Envelope")
+                                                                            .Elements(soapNS + "Body")
+                                                                            .Elements(responseNS + "SessionResponse")
+                                                                            .Elements(responseNS + "SessionResult")
+                                                                            .FirstOrDefault();
+                                                                            
+                                                        return element.Value;
+                                                    }" />
+		<!-- Invoke Business Trasaction -->
+		<rewrite-uri template="/Echo.asmx" copy-unmatched-params="false" />
+		<set-header name="SOAPAction" exists-action="override">
+			<value>http://tempuri.org/Send</value>
+		</set-header>
+		<set-header name="Content-Type" exists-action="override">
+			<value>text/xml</value>
+		</set-header>
+		<set-body template="liquid">
+			<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xmlns="http://tempuri.org/">
+				<soap:Body>
+					<Send>
+						<message>{{context.Variables['SessionToken']}}</message>
+					</Send>
+				</soap:Body>
+			</soap:Envelope>
+		</set-body>
+	</inbound>
+	<backend>
+		<base />
+	</backend>
+	<outbound>
+		<base />
+		<set-body template="liquid">
+		    {
+		        "Response": "{{body.envelope.body.SendResponse.SendResult}}"
+            }
+		</set-body>
+		<set-header name="Content-Type" exists-action="override">
+			<value>application/json</value>
+		</set-header>
+	</outbound>
+	<on-error>
+		<base />
+	</on-error>
+</policies>
