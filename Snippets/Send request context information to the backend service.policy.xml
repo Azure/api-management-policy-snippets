@@ -1,14 +1,28 @@
-<!-- These snippets show how to send some context information to the backend service for logging or processing. Easiest thing, but we still get questions from time to time. -->
+<!-- The policies described in this file show how to send some context information to the backend service for logging or processing. -->
 
 <!-- Copy these snippets into the inbound element -->
 
-<!-- Forward the name of the product associated with the subscription key in the request to the backend service. -->
-<set-query-parameter name="x-product-name" exists-action="override">
-	<value>@(context.Product.Name)</value>
-</set-query-parameter>
+<policies>
+  <inbound>
+    <base />
+      <!-- Forward the name of the product associated with the subscription key in the request to the backend service. -->
+      <set-query-parameter name="x-product-name" exists-action="override">
+        <value>@(context.Product.Name)</value>
+      </set-query-parameter>
 
-<!-- Forward the user id associated with the subscription key in the request as well as the region where the proxy processing the request is hosted. -->
-<set-header name="x-request-context-data" exists-action="override">
-	<value>@(context.User.Id)</value>
-	<value>@(context.Deployment.Region)</value>
-</set-header>
+      <!-- Forward the user id associated with the subscription key in the request as well as the region where the proxy processing the request is hosted. -->
+      <set-header name="x-request-context-data" exists-action="override">
+        <value>@(context.User.Id)</value>
+        <value>@(context.Deployment.Region)</value>
+      </set-header>    
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

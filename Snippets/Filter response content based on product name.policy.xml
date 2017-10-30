@@ -1,21 +1,35 @@
-<!-- This snippet demonstrates how to filter data elements from the response payload based on the product associated with the request.
-
-<!-- We assume that response content is formatted as JSON and contains root-level properties named "minutely", "hourly", "daily", "flags". -->
+<!-- The policy defined in this file demonstrates how to filter data elements from the response payload based on the product associated with the request.
+<!-- The snippet assumes that response content is formatted as JSON and contains root-level properties named "minutely", "hourly", "daily", "flags". -->
 
 <!-- Use https://darksky.net/dev/ API to test this policy. -->
 
 <!-- Copy this snippet into the outbound section. -->
 
-<choose>
-	<when condition="@(context.Response.StatusCode == 200 && context.Product.Name.Equals("Starter"))">
-		<set-body>@{
-				<!-- NOTE that we are not using preserveContent=true when deserializing reponse body stream into a JSON object since we don't intend to access it again. See details on https://docs.microsoft.com/en-us/azure/api-management/api-management-transformation-policies#SetBody -->
-				var response = context.Response.Body.As<JObject>();
-				foreach (var key in new [] {"minutely", "hourly", "daily", "flags"}) {
-					response.Property (key).Remove ();
-				}
-				return response.ToString();
-			}
+<policies>
+  <inbound>
+    <base />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+    <choose>
+      <when condition="@(context.Response.StatusCode == 200 && context.Product.Name.Equals("Starter="""))">
+        <set-body>
+          @{
+            <!-- NOTE that we are not using preserveContent=true when deserializing response body stream into a JSON object since we don't intend to access it again. See details on https://docs.microsoft.com/en-us/azure/api-management/api-management-transformation-policies#SetBody -->
+            var response = context.Response.Body.As<JObject>();
+            foreach (var key in new [] {"minutely", "hourly", "daily", "flags"}) {
+            response.Property (key).Remove ();
+           }
+          return response.ToString();
+          }
 		</set-body>
-	</when>
-</choose>
+      </when>
+    </choose>    
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>

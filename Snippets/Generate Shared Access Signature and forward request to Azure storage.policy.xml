@@ -1,18 +1,19 @@
-<!-- This snippet shows how to solve generate Shared Access Signature (https://docs.microsoft.com/en-us/azure/storage/storage-dotnet-shared-access-signature-part-1) using expressions and forward the request to Azure storage with rewrite-uri policy -->
+<!-- The policy defined in this file shows how to generate Shared Access Signature (https://docs.microsoft.com/en-us/azure/storage/storage-dotnet-shared-access-signature-part-1) using expressions. -->
+<!-- The snippet forwards the request to Azure storage with rewrite-uri policy. -->
+
+<!-- Copy the following snippet into the inbound section. -->
 
 <policies>
     <inbound>
-
         <base />
-
-        <!-- Initializing context variables with property values -->
+        <!-- Initialize context variables with property values. -->
         <set-variable name="accessKey" value="{{storageAccountAccessKey}}" />
         <set-variable name="storageAccount" value="{{storageAccountName}}" />
         <set-variable name="Content-Type" value="application/json" />
         <set-variable name="resourcePath" value="TableName()" />
         <set-variable name="x-ms-date" value="@(DateTime.UtcNow.ToString("R"))" />
 
-        <!-- Setting required headers -->
+        <!-- Set required headers. -->
         <set-header name="Content-Type" exists-action="override">
             <value>@((string)context.Variables["Content-Type"])</value>
         </set-header>
@@ -29,7 +30,8 @@
             <value>2015-04-05</value>
         </set-header>
 
-        <!-- Beginning with version 2009-09-19, the Table service requires that all REST calls include the DataServiceVersion and MaxDataServiceVersion headers. See https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/setting-the-odata-data-service-version-headers for more information. -->
+        <!-- Beginning with version 2009-09-19, the Table service requires that all REST calls include the DataServiceVersion and MaxDataServiceVersion headers. -->
+        <!-- See https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/setting-the-odata-data-service-version-headers for more information. -->
         <set-header name="MaxDataServiceVersion" exists-action="override">
             <value>3.0</value>
         </set-header>
@@ -42,7 +44,7 @@
             return string.Format("/{0}/{1}",(string)context.Variables["storageAccount"],(string)context.Variables["resourcePath"]);
             }" />
 
-        <!-- SharedKeyLite is legacy and SharedKey preferred, but here it is if needed (1 of 2) -->
+        <!-- SharedKeyLite is legacy and SharedKey should be used. -->
         <!--set-variable name="SharedKeyLite" value="@{
                 // SharedKeyLite is there for backwards compatibility. SharedKey is preferred for new work.
                 // System.Security.Cryptography.HMACSHA256 hasher = new System.Security.Cryptography.HMACSHA256(Convert.FromBase64String((string)context.Variables["accessKey"]));
@@ -72,7 +74,7 @@
             <!--value>@(string.Format("SharedKeyLite {0}:{1}", (string)context.Variables["storageAccount"], (string)context.Variables["SharedKeyLite"]))</value-->
         </set-header>
 
-        <!-- You probably have a $filter to add here -->
+        <!-- Add $filter here: -->
         <rewrite-uri template="/TableName()" />
     </inbound>
     <backend>
