@@ -1,39 +1,37 @@
-<!-- This snippet demonstrates how to route requests based on the size of their bodies -->
+<!-- The policy defined in this file demonstrates how to route requests based on the size of the message body. -->
+<!-- Content-Length header contains the size of the message body. -->
 
-<!-- Content-Length header contains the size of the message body -->
+<!--  256 KB, a limitation on message size in the Azure Service Bus.  -->
+<!-- The snippet checks if the message is smaller than 256000 bytes. If it's larger, request is routed somewhere else. -->
 
-<!-- The when condition checks if the message is smaller than 256000 bytes (almost 256 KB, a limitation on message size in the Azure Service Bus -->
-
-<!-- If it's larger, request is routed somewhere else -->
+<!-- Copy the following snippet into the inbound section. -->
 
 <policies>
     <inbound>
 	    <base/>
+		    <set-variable name="bodySize" value="@(context.Request.Headers["Content-Length"][0])"/>
+		    <choose>
+			    <when condition="@(int.Parse(context.Variables.GetValueOrDefault<string>("bodySize"))<256000)">
+				    <!-- let it pass through by doing nothing -->
+			    </when>
+			    <otherwise>
+				    <rewrite-uri template="{{alternate-path-and-query}}"/>
+				    <set-backend-service base-url="{{alternate-host}}"/>
+			    </otherwise>
+		    </choose>
 
-		<set-variable name="bodySize" value="@(context.Request.Headers["Content-Length"][0])"/>
-		<choose>
-			<when condition="@(int.Parse(context.Variables.GetValueOrDefault<string>("bodySize"))<256000)">
-				<!-- let it pass through by doing nothing -->
-			</when>
-			<otherwise>
-				<rewrite-uri template="{{alternate-path-and-query}}"/>
-				<set-backend-service base-url="{{alternate-host}}"/>
-			</otherwise>
-		</choose>
+		    <!-- In rare cases where Content-Length header is not present we'll have to read the body to get its length. -->
+            <!--
+            <choose>
+        	    <when condition="@(context.Request.Body.As<string>(preserveContent: true).Length<256000)">
 
-		<!-- In rare cases where Content-Length header is not present we'll have to read the body to get its length. -->
-        <!--
-        <choose>
-        	<when condition="@(context.Request.Body.As<string>(preserveContent: true).Length<256000)">
-
-        	</when>
-        	<otherwise>
-        		<rewrite-uri template=""/>
-        		<set-backend-service base-url=""/>
-        	</otherwise>
-        </choose>
-		-->
-
+        	    </when>
+        	    <otherwise>
+        		    <rewrite-uri template=""/>
+        		    <set-backend-service base-url=""/>
+        	    </otherwise>
+            </choose>
+		    -->
 	</inbound>
 	<backend>
 	    <base/>

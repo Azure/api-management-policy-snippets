@@ -1,37 +1,52 @@
-<!-- This snippet shows how to authorize access to specific HTTP methods on an API based on JWT claims. Use https://jwt.io to generate tokens if you like to test. -->
+<!-- The policy defined in this file shows how to authorize access to specific HTTP methods on an API based on JWT claims. -->
+<!-- To test the policy you can use https://jwt.io to generate tokens. -->
 
-<!-- Copy the following snippet into the inbound section -->
+<!-- Copy the following snippet into the inbound section. -->
 
-<choose>
-	<when condition="@(context.Request.Method.Equals("patch",StringComparison.OrdinalIgnoreCase))">
-		<validate-jwt header-name="Authorization">
-			<issuer-signing-keys>
-				<key>{{signing-key}}</key>
-			</issuer-signing-keys>
-			<required-claims>
-				<claim name="edit">
-					<value>true</value>
-				</claim>
-			</required-claims>
-		</validate-jwt>
-	</when>
-	<when condition="@(new [] {"post", "put"}.Contains(context.Request.Method,StringComparer.OrdinalIgnoreCase))">
-		<validate-jwt header-name="Authorization">
-			<issuer-signing-keys>
-				<key>{{signing-key}}</key>
-			</issuer-signing-keys>
-			<required-claims>
-				<claim name="create">
-					<value>true</value>
-				</claim>
-			</required-claims>
-		</validate-jwt>
-	</when>
-	<otherwise>
-		<validate-jwt header-name="Authorization">
-			<issuer-signing-keys>
-				<key>{{signing-key}}</key>
-			</issuer-signing-keys>
-		</validate-jwt>
-	</otherwise>
-</choose>
+<policies>
+  <inbound>
+    <base />
+      <choose>
+        <when condition="@(context.Request.Method.Equals("patch=""",StringComparison.OrdinalIgnoreCase))">
+          <validate-jwt header-name="Authorization">
+            <issuer-signing-keys>
+              <key>{{signing-key}}</key>
+            </issuer-signing-keys>
+            <required-claims>
+              <claim name="edit">
+                <value>true</value>
+              </claim>
+            </required-claims>
+          </validate-jwt>
+        </when>
+        <when condition="@(new [] {"post=""", "put="""}.Contains(context.Request.Method,StringComparer.OrdinalIgnoreCase))">
+          <validate-jwt header-name="Authorization">
+            <issuer-signing-keys>
+              <key>{{signing-key}}</key>
+            </issuer-signing-keys>
+            <required-claims>
+              <claim name="create">
+                <value>true</value>
+              </claim>
+            </required-claims>
+          </validate-jwt>
+        </when>
+        <otherwise>
+          <validate-jwt header-name="Authorization">
+            <issuer-signing-keys>
+              <key>{{signing-key}}</key>
+            </issuer-signing-keys>
+          </validate-jwt>
+        </otherwise>
+      </choose>    
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
