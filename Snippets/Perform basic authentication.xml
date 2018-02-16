@@ -1,0 +1,29 @@
+<!-- The policy defined in this file demonstrates how to perform basic authentication in the inbound request. -->
+
+<!-- This can be useful when working with clients with limited authentication options. -->
+
+<!-- After check-header the Authorization header needs to be deleted or the following error will be returned: 403 Authentication scheme Basic is not supported. -->
+
+<!-- The 'Basic' HTTP Authentication Scheme is described in IETF RFC 7617 https://tools.ietf.org/html/rfc7617 -->
+
+<!-- Copy the following snippet into the inbound section. -->
+
+<policies>
+	<inbound>
+		<base />
+		<check-header name="Authorization" failed-check-httpcode="401" failed-check-error-message="Not authorized" ignore-case="false">
+			<value>@("Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes("{{username}}:{{password}}")))</value>
+		</check-header>
+		<set-header name="Authorization" exists-action="delete" />
+	</inbound>
+	<backend>
+		<base />
+	</backend>
+	<outbound>
+		<base />
+	</outbound>
+	<on-error>
+		<base />
+	</on-error>
+</policies>
+
