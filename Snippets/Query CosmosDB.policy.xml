@@ -1,6 +1,6 @@
 <!-- The policy defined in this file demonstrates how to query CosmosDB in policies -->
 
-<!-- The CosmosDB REST API is documented here: https://docs.microsoft.com/en-us/rest/api/documentdb/querying-documentdb-resources-using-the-rest-api?wt.mc_id=azure-blog-antchu -->
+<!-- The CosmosDB REST API is documented here: https://docs.microsoft.com/en-us/rest/api/documentdb/querying-documentdb-resources-using-the-rest-api-->
 
 <!-- More detailed explanation can be found in this blog post: https://anthonychu.ca/post/azure-api-management-look-up-user-cosmos-db/ -->
 
