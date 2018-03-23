@@ -1,0 +1,78 @@
+<!-- The policy defined in this file demonstrates how to query CosmosDB in policies -->
+
+<!-- The CosmosDB REST API is documented here: https://docs.microsoft.com/en-us/rest/api/documentdb/querying-documentdb-resources-using-the-rest-api?wt.mc_id=azure-blog-antchu -->
+
+<!-- More detailed explanation can be found in this blog post: https://anthonychu.ca/post/azure-api-management-look-up-user-cosmos-db/ -->
+
+
+<policies>
+    <inbound>
+        <base />
+        <set-variable name="requestDateString" value="@(DateTime.UtcNow.ToString("r"))" />
+        <send-request mode="new" response-variable-name="response" timeout="10" ignore-error="false">
+            <set-url>https://{database-account}.documents.azure.com/dbs/{db}/colls/{coll}/docs</set-url>
+            <set-method>POST</set-method>
+            <set-header name="Authorization" exists-action="override">
+                <value>@{
+          var verb = "post";
+          var resourceType = "docs";
+          var resourceLink = "";
+          var key = "";
+          var keyType = "master";
+          var tokenVersion = "1.0";
+          var date = context.Variables.GetValueOrDefault<string>("requestDateString");
+
+          var hmacSha256 = new System.Security.Cryptography.HMACSHA256 { Key = Convert.FromBase64String(key) };  
+
+          verb = verb ?? "";  
+          resourceType = resourceType ?? "";
+          resourceLink = resourceLink ?? "";
+
+          string payLoad = string.Format("{0}\n{1}\n{2}\n{3}\n{4}\n",  
+                  verb.ToLowerInvariant(),  
+                  resourceType.ToLowerInvariant(),  
+                  resourceLink,  
+                  date.ToLowerInvariant(),  
+                  ""  
+          );  
+
+          byte[] hashPayLoad = hmacSha256.ComputeHash(System.Text.Encoding.UTF8.GetBytes(payLoad));  
+          string signature = Convert.ToBase64String(hashPayLoad);  
+
+          return System.Uri.EscapeDataString(String.Format("type={0}&ver={1}&sig={2}",  
+              keyType,  
+              tokenVersion,  
+              signature));
+        }</value>
+            </set-header>
+            <set-header name="Content-Type" exists-action="override">
+                <value>application/query+json</value>
+            </set-header>
+            <set-header name="x-ms-documentdb-isquery" exists-action="override">
+                <value>True</value>
+            </set-header>
+            <set-header name="x-ms-date" exists-action="override">
+                <value>@(context.Variables.GetValueOrDefault<string>("requestDateString"))</value>
+            </set-header>
+            <set-header name="x-ms-version" exists-action="override">
+                <value>2017-02-22</value>
+            </set-header>
+            <set-header name="x-ms-query-enable-crosspartition" exists-action="override">
+                <value>true</value>
+            </set-header>
+            <set-body>
+        @("{\"query\": \"SELECT * FROM c WHERE c.id = @id\", " +
+          "\"parameters\": [{ \"name\": \"@id\", \"value\": \"" + context.User.Id + "\"}]}")
+      </set-body>
+        </send-request>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
