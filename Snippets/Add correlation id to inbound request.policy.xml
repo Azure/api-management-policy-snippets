@@ -18,11 +18,9 @@
 				var guidBinary = new byte[16];
 				Array.Copy(Guid.NewGuid().ToByteArray(), 0, guidBinary, 0, 10);
 				long time = DateTime.Now.Ticks;
-				byte[] bytes = new byte[8];
+				byte[] bytes = new byte[6];
 				unchecked
 				{
-				       bytes[7] = (byte)(time >> 56);
-				       bytes[6] = (byte)(time >> 48);
 				       bytes[5] = (byte)(time >> 40);
 				       bytes[4] = (byte)(time >> 32);
 				       bytes[3] = (byte)(time >> 24);
