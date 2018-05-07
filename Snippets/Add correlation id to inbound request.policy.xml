@@ -7,9 +7,6 @@
 
 <!-- Copy the following snippet into the inbound section. Applying this snippet at the global level will ensure that correlation id is added to all requests. -->
 
-
-
-
 <policies>
     <inbound>
         <base />
