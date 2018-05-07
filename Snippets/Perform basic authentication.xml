@@ -1,0 +1,32 @@
+<!-- The policy defined in this file demonstrates how to perform basic authentication in the inbound request. -->
+
+<!-- This can be useful when working with clients with limited authentication options. -->
+
+<!-- The Authorization header is deleted after validation to prevent issues with backend APIs. -->
+
+<!-- The 'Basic' HTTP Authentication Scheme is described in IETF RFC 7617 https://tools.ietf.org/html/rfc7617 -->
+
+<!-- Copy the following snippet into the inbound section. -->
+
+<policies>
+    <inbound>
+        <base />
+        <choose>
+            <when condition="@(context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().UserId!="{{UserId}}" || context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().Password!="{{Password}}")">
+                <return-response>
+                    <set-status code="401" reason="Not authorized" />
+                </return-response>
+            </when>
+        </choose>
+        <set-header name="Authorization" exists-action="delete" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
