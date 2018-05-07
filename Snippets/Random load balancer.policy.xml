@@ -1,0 +1,23 @@
+<!-- Copy this snippet into the inbound element to add random load balancing capabilities across multiple backend URLs -->
+<set-variable name="urlId" value="@{
+    Random rnd = new Random();
+    int urlId = rnd.Next(1, 3);
+    return urlId.ToString();
+}" />
+<choose>
+    <when condition="@(context.Variables.GetValueOrDefault<string>("urlId").Equals("1"))">
+        <set-backend-service base-url="https://azfuncapi.azure-api.net/azfunchttpappsvc/api/HttpTriggerCSharp1" />
+    </when>
+    <when condition="@(context.Variables.GetValueOrDefault<string>("urlId").Equals("2"))">
+        <set-backend-service base-url="https://azfuncapi.azure-api.net/azfuncappsvc1/api/HttpTriggerCSharp1" />
+    </when>
+    <otherwise>
+        <return-response>
+            <set-status code="500" reason="InternalServerError" />
+            <set-header name="Microsoft-Azure-Api-Management-Correlation-Id" exists-action="override">
+                <value>@{return Guid.NewGuid().ToString();}</value>
+            </set-header>
+            <set-body>A gateway-related error occurred while processing the request.</set-body>
+        </return-response>
+    </otherwise>
+</choose>
