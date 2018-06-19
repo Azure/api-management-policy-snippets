@@ -1,6 +1,18 @@
 # Azure API Management Policy Snippets
 
-This repository contains policy examples contributed by the product team and the user community. The snippets are meant to be re-used verbatim, provide inspiration or serve as learning aids. Some snippets are parameterized using [Named Values](https://docs.microsoft.com/en-us/azure/api-management/api-management-howto-properties) (fka Properties), which look like this `{{some-value}}`. When using such snippets you will have to either define relevant Named Values or replace them with values in place.
+# Examples
+
+The `examples/` folder contains policy examples contributed by the product team and the user community. The samples are meant to be re-used verbatim, provide inspiration or serve as learning aids. Some of them are parameterized using [Named Values](https://docs.microsoft.com/en-us/azure/api-management/api-management-howto-properties) (formerly known as Properties), which look like this: `{{some-value}}`. When using parametrized samples, you will have to either define relevant Named Values or replace them with values in place.
+
+# Visual Studio Code snippets
+
+The `vscode-snippets/` folder contains user snippets for Visual Studio Code. User snippets are helpful for streamlining workflow and simplifying document editing with autocomplete and easy navigation. Please, refer to the [Visual Studio Code documentation](https://code.visualstudio.com/docs/editor/userdefinedsnippets) on how to use them.
+
+![Azure API Management VS Code User Snippet 1](media/vscode-snippets/apim-vscode-snippets-1.png)
+
+![Azure API Management VS Code User Snippet 2](media/vscode-snippets/apim-vscode-snippets-2.png)
+
+![Azure API Management VS Code User Snippet 3](media/vscode-snippets/apim-vscode-snippets-3.png)
 
 # Helpful Links
 

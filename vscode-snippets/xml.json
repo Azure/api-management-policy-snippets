@@ -1,0 +1,438 @@
+{
+    "policy-document": {
+        "prefix": "policy-document",
+        "body": [
+            "<policies>",
+            "\t<inbound>",
+            "\t\t<base/>$1",
+            "\t</inbound>",
+            "\t<backend>",
+            "\t\t<base/>$3",
+            "\t</backend>",
+            "\t<outbound>",
+            "\t\t<base/>$2",
+            "\t</outbound>",
+            "\t<on-error>",
+            "\t\t<base/>$4",
+            "\t</on-error>",
+            "</policies>"
+        ],
+        "description": "Policy document boilerplate for scopes below Global"
+    },
+    "policy-document-global": {
+        "prefix": "policy-document-global",
+        "body": [
+            "<policies>",
+            "\t<inbound>$1",
+            "\t</inbound>",
+            "\t<backend>",
+            "\t\t<forwward-request/>$3",
+            "\t</backend>",
+            "\t<outbound>$2",
+            "\t</outbound>",
+            "\t<on-error>$4",
+            "\t</on-error>",
+            "</policies>"
+        ],
+        "description": "Policy document boilerplate for Global scope"
+    },
+    "authentication-basic": {
+        "prefix": "authentication-basic",
+        "body": [
+            "<authentication-basic username=\"$1\" password=\"$2\" />"
+        ],
+        "description": "Authenticate with the backend service using Basic authentication. Use in the inbound section at API scope."
+    },
+    "authentication-certificate": {
+        "prefix": "authentication-certificate",
+        "description": "Authenticate with the backend service using a client certificate. Use in the inbound section at API scope.",
+        "body": [
+            "<authentication-certificate thumbprint=\"$1\" />"
+        ]
+    },
+    "base": {
+        "prefix": "base",
+        "body": [
+            "<base />"
+        ]
+    },
+    "cache-lookup": {
+        "prefix": "cache-lookup",
+        "description": "Perform cache lookup and return a valid cached response when available. Appropriately respond to cache validation requests from callers. Use anywhere in the inbound section at Product, API, or Operation scopes.",
+        "body": [
+            "<cache-lookup vary-by-developer=\"${1|true,false|}\" vary-by-developer-groups=\"${2|true,false|}\" downstream-caching-type=\"${3|none,private,public|}\" must-revalidate=\"${4|true,false|}\" allow-private-response-caching=\"${4|true,false|}\">",
+            "\t<vary-by-header>${5:header name}</vary-by-header>",
+            "\t<vary-by-query-parameter>${6:query parameter}</vary-by-query-parameter>",
+            "</cache-lookup>"
+        ]
+    },
+    "cache-lookup-value": {
+        "prefix": "cache-lookup-value",
+        "description": "Perform cache lookup and returned value under the key, if available, or default. If value is not present and no default is specified, variable will not be set. Use at any scope in any section except <backend>.",
+        "body": [
+            "<cache-lookup-value key=\"$1\" default-value=\"$2\" variable-name=\"$3\" />"
+        ]
+    },
+    "cache-remove-value": {
+        "prefix": "cache-remove-value",
+        "description": "Remove value from cache under the key. Use at any scope in any section except <backend>.",
+        "body": [
+            "<cache-remove-value key=\"$1\" />"
+        ]
+    },
+    "cache-store": {
+        "prefix": "cache-store",
+        "description": "Cache responses according to the specified cache configuration. Use anywhere in the outbound section at Product, API, or Operation scopes.",
+        "body": [
+            "<cache-store duration=\"${1:seconds}\" />"
+        ]
+    },
+    "cache-store-value": {
+        "prefix": "cache-store-value",
+        "description": "Store value in cache under a key for duration. Use at any scope in any section except <backend>.",
+        "body": [
+            "<cache-store-value key=\"$1\" value=\"@($2)\" duration=\"${3:seconds}\" />"
+        ]
+    },
+    "check-header": {
+        "prefix": "check-header",
+        "description": "Check header and return specified HTTP status code if it doesn't exist or match expected value. Works for both response and request headers – policy can be applied in inbound or outbound sections at any scope.",
+        "body": [
+            "<check-header name=\"$1\" failed-check-httpcode=\"$2\" failed-check-error-message=\"$3\" ignore-case=\"${4|true,false|}\">",
+            "\t<value>$5</value>",
+            "</check-header>"
+        ]
+    },
+    "choose": {
+        "prefix": "choose",
+        "description": "Conditionally apply policy statements based on the results of the evaluation of Boolean expressions. Use at any scope in the inbound and outbound sections.",
+        "body": [
+            "<choose>",
+            "\t<when condition=\"@($1)\">",
+            "\t\t$2",
+            "\t</when>",
+            "\t<otherwise>",
+            "\t\t$3",
+            "\t</otherwise>",
+            "</choose>"
+        ]
+    },
+    "cors": {
+        "prefix": "cors",
+        "description": "CORS stands for cross-origin resource sharing. Add CORS support to an operation or an API to allow cross-domain calls from browser-based clients. Use in the inbound section only.",
+        "body": [
+            "<cors allow-credentials=\"${1|true,false|}\">",
+            "\t<allowed-origins>",
+            "\t\t<origin>${2:*}</origin>",
+            "\t</allowed-origins>",
+            "\t<allowed-methods>",
+            "\t\t<method>${3:*}</method>",
+            "\t</allowed-methods>",
+            "\t<allowed-headers>",
+            "\t\t<header>${4:*}</header>",
+            "\t</allowed-headers>",
+            "\t<expose-headers>",
+            "\t\t<header>${5:*}</header>",
+            "\t</expose-headers>",
+            "</cors>"
+        ]
+    },
+    "cross-domain": {
+        "prefix": "cross-domain",
+        "description": "Make the API accessible from Adobe Flash and Microsoft Silverlight browser-based clients. Use in the inbound section at Global scope.",
+        "body": [
+            "<cross-domain>",
+            "\t<cross-domain-policy>",
+            "\t\t<allow-http-request-headers-from domain=\"*\" headers=\"*\" />",
+            "\t</cross-domain-policy>",
+            "</cross-domain>"
+        ]
+    },
+    "find-and-replace": {
+        "prefix": "find-and-replace",
+        "description": "Find a request or response substring and replace it with a different substring. Use in the inbound and outbound sections at any scope.",
+        "body": [
+            "<find-and-replace from=\"$1\" to=\"$2\" />"
+        ]
+    },
+    "forward-request": {
+        "prefix": "forward-request",
+        "description": "Forward request to the backend service using information in the context and receive a response, waiting no longer then specified timeout value. Use at any scope in the backend section.",
+        "body": [
+            "<forward-request timeout=\"${1:seconds}\" />"
+        ]
+    },
+    "ip-filter": {
+        "prefix": "ip-filter",
+        "description": "Allow calls only from specific IP addresses and/or address ranges. Forbid calls from specific IP addresses and/or address ranges. Use in the inbound section at any scope.",
+        "body": [
+            "<ip-filter action=\"${1|allow,forbid|}\">",
+            "\t<address-range from=\"$2\" to=\"$3\" />",
+            "</ip-filter>"
+        ]
+    },
+    "jsonp": {
+        "prefix": "jsonp",
+        "description": "Add support for JSONP to an operation or an API to allow cross-domain calls from JavaScript browser-based clients. Use in the outbound section only.",
+        "body": [
+            "<jsonp callback-parameter-name=\"$1\" />"
+        ]
+    },
+    "json-to-xml": {
+        "prefix": "json-to-xml",
+        "description": "Convert request or response body from JSON to XML. Use in the inbound or outbound sections at API or Operation scopes.",
+        "body": [
+            "<json-to-xml apply=\"${1|always,content-type-json|}\" consider-accept-header=\"${2|true,false|}\" parse-date=\"${3|true,false|}\" />"
+        ]
+    },
+    "limit-concurrency": {
+        "prefix": "limit-concurrency",
+        "description": "Limit how many calls may be processed in parallel for the duration of this policy's body.",
+        "body": [
+            "<limit-concurrency key=\"$1\" max-count=\"$2\" >",
+            "</limit-concurrency>"
+        ]
+    },
+    "log-to-eventhub": {
+        "prefix": "log-to-eventhub",
+        "description": "Send custom messages to Event Hub. Use at any scope in the inbound or outbound sections.",
+        "body": [
+            "<log-to-eventhub logger-id =\"$1\">",
+            "\t@($2)",
+            "</log-to-eventhub>"
+        ]
+    },
+    "mock-response": {
+        "prefix": "mock-response",
+        "description": "Mock response based on operation responses samples/schemas. Use at any scope in the inbound or outbound sections.",
+        "body": [
+            "<mock-response status-code=\"$1\" content-type=\"$2\" />"
+        ]
+    },
+    "proxy": {
+        "prefix": "proxy",
+        "description": "Route requests forwarded to backends via an HTTP proxy. Use at any scope in the inbound section.",
+        "body": [
+            "<proxy url=\"$1\" username=\"$2\" password=\"$3\" />"
+        ]
+    },
+    "quota": {
+        "prefix": "quota",
+        "description": "Enforce a renewable or lifetime call volume and/or bandwidth quota per subscription. Use in the inbound section at Product scope.",
+        "body": [
+            "<quota calls=\"${1:number}\" bandwidth=\"${2:kilobytes}\" renewal-period=\"${3:seconds}\">",
+            "\t<api name=\"$4\" calls=\"${5:number}\" bandwidth=\"${6:kilobytes}\">",
+            "\t\t<operation name=\"$7\" calls=\"${8:number}\" bandwidth=\"${9:kilobytes}\" />",
+            "\t</api>",
+            "</quota>"
+        ]
+    },
+    "quota-by-key": {
+        "prefix": "quota-by-key",
+        "description": "Enforce a renewable or lifetime call volume and/or bandwidth quota per calculated key. Use in the inbound section at any scope.",
+        "body": [
+            "<quota-by-key calls=\"${1:number}\" bandwidth=\"${2:kilobytes}\" renewal-period=\"$3\" counter-key=\"@($4)\" />"
+        ]
+    },
+    "rate-limit": {
+        "prefix": "rate-limit",
+        "description": "Arrest usage spikes by limiting calls and/or bandwidth consumption rate per subscription. Use in the inbound section at Product scope.",
+        "body": [
+            "<rate-limit calls=\"${1:number}\" renewal-period=\"${2:seconds}\">",
+            "\t<api name=\"$3\" calls=\"${4:number}\">",
+            "\t\t<operation name=\"$5\" calls=\"${6:number}\" />",
+            "\t</api>",
+            "</rate-limit>"
+        ]
+    },
+    "rate-limit-by-key": {
+        "prefix": "rate-limit-by-key",
+        "description": "Arrest usage spikes by limiting calls and/or bandwidth consumption rate per calculated key. Use in the inbound section at any scope.",
+        "body": [
+            "<rate-limit-by-key calls=\"${1:number}\" renewal-period=\"${2:seconds}\" counter-key=\"@($3)\" />"
+        ]
+    },
+    "redirect-content-urls": {
+        "prefix": "redirect-content-urls",
+        "description": "Use in the outbound section to re-write response body links and Location header values making them point to the proxy. Use in the inbound section for an opposite effect. Apply at API or Operation scopes.",
+        "body": [
+            "<redirect-content-urls />"
+        ]
+    },
+    "retry": {
+        "prefix": "retry",
+        "description": "Retry execution of the enclosed policy statements, if and until the condition is met. Execution will repeat at the specified time interval, up to the specified count.",
+        "body": [
+            "<retry condition=\"@($1)\" count=\"${2:number}\" interval=\"${3:seconds}\">",
+            "\t$0",
+            "</retry>"
+        ]
+    },
+    "return-response": {
+        "prefix": "return-response",
+        "description": "Abort pipeline execution and return the specified response directly to the caller. Use at any scope in the inbound and outbound sections.",
+        "body": [
+            "<return-response>",
+            "\t<set-status code=\"$1\" reason=\"$2\" />",
+            "\t<set-header name=\"$3\" exists-action=\"${4|override,skip,append,delete|}\">",
+            "\t\t<value>$5</value>",
+            "\t</set-header>",
+            "\t<set-body>$6</set-body>",
+            "</return-response>"
+        ]
+    },
+    "rewrite-uri": {
+        "prefix": "rewrite-uri",
+        "description": "Convert request URL from its public form to the form expected by the web service. Use anywhere in the inbound section at Operation scope only.",
+        "body": [
+            "<rewrite-uri template=\"$1\" copy-unmatched-params=\"${2|true,false|}\" />"
+        ]
+    },
+    "send-one-way-request": {
+        "prefix": "send-one-way-request",
+        "description": "Send provided request to the specified URL, without waiting for response. Use at any scope in the inbound and outbound sections.",
+        "body": [
+            "<send-one-way-request mode=\"${1|new,copy|}\">",
+            "\t<set-url>$2</set-url>",
+            "\t<set-method>${3|GET,PUT,PATCH,DELETE|}</set-method>",
+            "\t<set-header name=\"$4\" exists-action=\"${5|override,skip,append,delete|}\">",
+            "\t\t<value>$6</value>",
+            "\t</set-header>",
+            "\t<set-body>$7</set-body>",
+            "</send-one-way-request>"
+        ]
+    },
+    "send-request": {
+        "prefix": "send-request",
+        "description": "Send provided request to the specified URL, waiting no longer then set timeout value. Use at any scope in the inbound and outbound sections.",
+        "body": [
+            "<send-request mode=\"${1|new,copy|}\" response-variable-name=\"$2\" timeout=\"${3:seconds}\" ignore-error=\"${4|true,false|}\">",
+            "\t<set-url>$5</set-url>",
+            "\t<set-method>${6|GET,PUT,PATCH,DELETE|}</set-method>",
+            "\t<set-header name=\"$7\" exists-action=\"${8|override,skip,append,delete|}\">",
+            "\t\t<value>$9</value>",
+            "\t</set-header>",
+            "\t<set-body>$10</set-body>",
+            "</send-request>"
+        ]
+    },
+    "set-backend-service": {
+        "prefix": "set-backend-service",
+        "description": "Change backend service where the incoming calls will be directed. Use in the inbound section only at any scope.",
+        "body": [
+            "<set-backend-service base-url=\"$1\" />"
+        ]
+    },
+    "set-body": {
+        "prefix": "set-body",
+        "description": "Set message body to a specific string value. The policy has no effect on the Content-Type header value. Use at any scope in the inbound or outbound sections.",
+        "body": [
+            "<set-body template=\"${1|none,liquid|}\">$2</set-body>"
+        ]
+    },
+    "set-header": {
+        "prefix": "set-header",
+        "description": "Add a new header, change the value of an existing header or remove a header. Works for both response and request headers – policy can be applied in inbound or outbound sections at any scope.",
+        "body": [
+            "<set-header name=\"$1\" exists-action=\"${2|override,skip,append,delete|}\">",
+            "\t<value>$3</value>",
+            "</set-header>"
+        ]
+    },
+    "set-method": {
+        "prefix": "set-method",
+        "description": "Change HTTP method to the specified value",
+        "body": [
+            "<set-method>${1|GET,PUT,PATCH,DELETE|}</set-method>"
+        ]
+    },
+    "set-query-parameter": {
+        "prefix": "set-query-parameter",
+        "description": "Add a new query string parameter, change the value of an existing parameter or remove a parameter. Can be applied in the inbound section at any scope.",
+        "body": [
+            "<set-query-parameter name=\"$1\" exists-action=\"${2|override,skip,append,delete|}\">",
+            "\t<value>$3</value>",
+            "</set-query-parameter>"
+        ]
+    },
+    "set-status": {
+        "prefix": "set-status",
+        "description": "Change HTTP status code to the specified value. Use at any scope in the outbound sections.",
+        "body": [
+            "<set-status code=\"$1\" reason=\"$2\" />"
+        ]
+    },
+    "set-variable": {
+        "prefix": "set-variable",
+        "description": "Persist a value in a named context variable for later access from expressions. Use at any scope in the inbound and outbound sections.",
+        "body": [
+            "<set-variable name=\"$1\" value=\"@($2)\" />"
+        ]
+    },
+    "trace": {
+        "prefix": "trace",
+        "description": "Output information into trace logs, if request is executed with tracing enabled.",
+        "body": [
+            "<trace source=\"$1\">",
+            "\t@($2)",
+            "</trace>"
+        ]
+    },
+    "validate-jwt": {
+        "prefix": "validate-jwt",
+        "description": "Check and validate a JWT in a header or query parameter. Use in the inbound section at any scope.",
+        "body": [
+            "<validate-jwt header-name=\"$1\" failed-validation-httpcode=\"${2:401}\" failed-validation-error-message=\"${3:Unauthorized}\" require-expiration-time=\"${4|true,false|}\" require-scheme=\"${5:Bearer}\" require-signed-tokens=\"${6|true,false|}\" clock-skew=\"${7:0}\">",
+            "\t<openid-config url=\"$8\">",
+            "\t<issuer-signing-keys>",
+            "\t\t<key>${9:Base64 Encoded Key}</key>",
+            "\t</issuer-signing-keys>",
+            "\t<audiences>",
+            "\t\t<audience>$10</audience>",
+            "\t</audiences>",
+            "\t<issuers>",
+            "\t\t<issuer>$11</issuer>",
+            "\t</issuers>",
+            "\t<required-claims>",
+            "\t\t<claim name=\"$12\" match=\"${13|all,any|}\">",
+            "\t\t\t<value>$14</value>",
+            "\t\t</claim>",
+            "\t</required-claims>",
+            "</validate-jwt>"
+        ]
+    },
+    "wait": {
+        "prefix": "wait",
+        "description": "Wait for all or any of the send request policies to complete before proceeding. Use at any scope in the inbound and outbound sections.",
+        "body": [
+            "<wait for=\"${8|all,any|}\">",
+            "\t$0",
+            "</wait>"
+        ]
+    },
+    "xml-to-json": {
+        "prefix": "xml-to-json",
+        "description": "Convert request or response body from XML to either \"JSON friendly\" or \"XML faithful\" form of JSON. Use in the inbound or outbound sections at API or Operation scopes.",
+        "body": [
+            "<xml-to-json kind=\"${1|javascript-friendly,direct|}\" apply=\"${2|always,content-type-xml|}\" consider-accept-header=\"${3|true,false|}\" />"
+        ]
+    },
+    "xsl-transform": {
+        "prefix": "xsl-transform",
+        "description": "Transform request or response body using XSLTransform. Use in the inbound, outbound and on-error sections at any scope.",
+        "body": [
+            "<xsl-transform>",
+            "\t<parameter name=\"$1\">@($2)</parameter>",
+            "\t<xsl:stylesheet version=\"1.0\" xmlns:xsl=\"http://www.w3.org/1999/XSL/Transform\">",
+            "\t\t<xsl:output method=\"xml\" indent=\"yes\" />",
+            "\t\t<xsl:param name=\"$3\" />",
+            "\t\t<xsl:template match=\"* | @* | node()\">",
+            "\t\t\t<xsl:copy>",
+            "\t\t\t\t<xsl:apply-templates select=\"@* | node()|*\" />",
+            "\t\t\t</xsl:copy>",
+            "\t\t</xsl:template>",
+            "\t</xsl:stylesheet>",
+            "</xsl-transform>"
+        ]
+    }
+}
