@@ -1,7 +1,7 @@
 Snippet Overview
 ====================
 
-- [riggering an Azure Data Factory Pipeline](#Triggering-an-Azure-Data-Factory-Pipeline)
+- [Triggering an Azure Data Factory Pipeline](#Triggering-an-Azure-Data-Factory-Pipeline)
 
 ## Triggering an Azure Data Factory Pipeline
 **Maintainer:** @tomkerkhove
