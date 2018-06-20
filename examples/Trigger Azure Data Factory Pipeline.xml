@@ -1,0 +1,47 @@
+<!--
+    Special thanks to Massimo Crippa for his help (https://github.com/massimoc)
+-->
+<policies>
+    <inbound>
+        <base />
+        <cache-lookup-value key="azureManagementApiTokenCacheKey" default-value="-noToken-" variable-name="azureManagementApiToken" />
+        <choose>
+            <when condition="@((string)context.Variables["azureManagementApiToken"] == "-noToken-")">
+                <send-request mode="new" response-variable-name="tokenResponse" timeout="5" ignore-error="false">
+                    <set-url>https://login.microsoftonline.com/{{Data-Consolidation-ActiveDirectory-TenantId}}/oauth2/token</set-url>
+                    <set-method>POST</set-method>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/x-www-form-urlencoded</value>
+                    </set-header>
+                    <set-body>@{
+                       return "grant_type=client_credentials&client_id={{Data-Consolidation-VSTSPrincipal-ClientID}}&client_secret={{Data-Consolidation-VSTSPrincipal-ClientSecret}}&resource=https%3A%2F%2Fmanagement.azure.com%2F";
+                       }</set-body>
+                </send-request>
+                <set-variable name="accessToken" value="@(((IResponse)context.Variables["tokenResponse"]).Body.As<JObject>()["access_token"].ToString())" />
+                <cache-store-value key="azureManagementApiTokenCacheKey" value="@((string)context.Variables.GetValueOrDefault("accessToken"))" duration="3000" />
+                <set-header name="Authorization" exists-action="override">
+                    <value>@(String.Concat("Bearer ", ((string)context.Variables.GetValueOrDefault("accessToken"))))</value>
+                </set-header>
+            </when>
+            <otherwise>
+                <set-header name="Authorization" exists-action="override">
+                    <value>@(String.Concat("Bearer ", ((string)context.Variables.GetValueOrDefault("azureManagementApiToken"))))</value>
+                </set-header>
+            </otherwise>
+        </choose>
+        <set-backend-service base-url="https://management.azure.com" />
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/json</value>
+        </set-header>
+        <rewrite-uri template="subscriptions/0f9d7fea-99e8-4768-8672-06a28514f77e/resourceGroups/gdpr-with-azure/providers/Microsoft.DataFactory/factories/gdpr-with-azure/pipelines/Consolidate-User-Data/createRun?api-version=2017-09-01-preview" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
