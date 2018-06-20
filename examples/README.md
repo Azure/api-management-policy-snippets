@@ -1,4 +1,4 @@
-Snippet Overview
+Overview
 ====================
 
 - [Triggering an Azure Data Factory Pipeline](#Triggering-an-Azure-Data-Factory-Pipeline)
