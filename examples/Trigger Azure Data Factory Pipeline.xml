@@ -30,7 +30,7 @@
         <set-header name="Content-Type" exists-action="override">
             <value>application/json</value>
         </set-header>
-        <rewrite-uri template="subscriptions/{{SubscriptionId}}/resourceGroups/{{ResourceGroupName}}/providers/Microsoft.DataFactory/factories/gdpr-with-azure/pipelines/{{DataFactoryName}}/createRun?api-version=2017-09-01-preview" />
+        <rewrite-uri template="subscriptions/{{SubscriptionId}}/resourceGroups/{{ResourceGroupName}}/providers/Microsoft.DataFactory/factories/{{DataFactoryName}}/pipelines/{{PipelineName}}/createRun?api-version=2017-09-01-preview" />
     </inbound>
     <backend>
         <base />
