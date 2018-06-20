@@ -5,13 +5,13 @@
         <choose>
             <when condition="@((string)context.Variables["azureManagementApiToken"] == "-noToken-")">
                 <send-request mode="new" response-variable-name="tokenResponse" timeout="5" ignore-error="false">
-                    <set-url>https://login.microsoftonline.com/{{ActiveDirectoryTenantId}}/oauth2/token</set-url>
+                    <set-url>https://login.microsoftonline.com/{{ActiveDirectory-TenantId}}/oauth2/token</set-url>
                     <set-method>POST</set-method>
                     <set-header name="Content-Type" exists-action="override">
                         <value>application/x-www-form-urlencoded</value>
                     </set-header>
                     <set-body>@{
-                       return "grant_type=client_credentials&client_id={{ServicePrincipleClientId}}&client_secret={{ServicePrincipleClientSecret}}&resource=https%3A%2F%2Fmanagement.azure.com%2F";
+                       return "grant_type=client_credentials&client_id={{ServicePrinciple-ClientId}}&client_secret={{ServicePrinciple-ClientSecret}}&resource=https%3A%2F%2Fmanagement.azure.com%2F";
                        }</set-body>
                 </send-request>
                 <set-variable name="accessToken" value="@(((IResponse)context.Variables["tokenResponse"]).Body.As<JObject>()["access_token"].ToString())" />
@@ -30,7 +30,7 @@
         <set-header name="Content-Type" exists-action="override">
             <value>application/json</value>
         </set-header>
-        <rewrite-uri template="subscriptions/{{SubscriptionId}}/resourceGroups/{{ResourceGroupName}}/providers/Microsoft.DataFactory/factories/{{DataFactoryName}}/pipelines/{{PipelineName}}/createRun?api-version=2017-09-01-preview" />
+        <rewrite-uri template="subscriptions/{{Subscription-Id}}/resourceGroups/{{ResourceGroup-Name}}/providers/Microsoft.DataFactory/factories/{{DataFactory-Name}}/pipelines/{{Pipeline-Name}}/createRun?api-version=2017-09-01-preview" />
     </inbound>
     <backend>
         <base />
