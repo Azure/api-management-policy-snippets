@@ -4,16 +4,17 @@
         "body": [
             "<policies>",
             "\t<inbound>",
-            "\t\t<base/>$1",
+            "\t\t<base/>",
+            "\t\t$0",
             "\t</inbound>",
             "\t<backend>",
-            "\t\t<base/>$3",
+            "\t\t<base/>",
             "\t</backend>",
             "\t<outbound>",
-            "\t\t<base/>$2",
+            "\t\t<base/>",
             "\t</outbound>",
             "\t<on-error>",
-            "\t\t<base/>$4",
+            "\t\t<base/>",
             "\t</on-error>",
             "</policies>"
         ],
@@ -23,14 +24,15 @@
         "prefix": "policy-document-global",
         "body": [
             "<policies>",
-            "\t<inbound>$1",
+            "\t<inbound>",
+            "\t\t$0",
             "\t</inbound>",
             "\t<backend>",
-            "\t\t<forwward-request/>$3",
+            "\t\t<forward-request/>",
             "\t</backend>",
-            "\t<outbound>$2",
+            "\t<outbound>",
             "\t</outbound>",
-            "\t<on-error>$4",
+            "\t<on-error>",
             "\t</on-error>",
             "</policies>"
         ],
@@ -109,10 +111,9 @@
         "body": [
             "<choose>",
             "\t<when condition=\"@($1)\">",
-            "\t\t$2",
+            "\t\t$0",
             "\t</when>",
             "\t<otherwise>",
-            "\t\t$3",
             "\t</otherwise>",
             "</choose>"
         ]
