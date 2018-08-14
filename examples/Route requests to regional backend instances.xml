@@ -1,0 +1,33 @@
+<!--
+    The policy defined in this file uses 'set-backend' and the conditional 'choose' policies as well as the 'context.Deployment.Region' property to route requests to different backend services, based on the region of an Azure API Management instance the request has reached. 
+
+    It assumes that Azure API Management is deployed in West US and East Asia. Multi-regions functionality is supported only in the premium tier of the service.
+    
+    See the documentation for details: https://docs.microsoft.com/en-us/azure/api-management/api-management-howto-deploy-multi-region
+-->
+
+<policies>
+    <inbound>
+        <base />
+        <choose>
+            <when condition="@("West US".Equals(context.Deployment.Region, StringComparison.OrdinalIgnoreCase))">
+                <set-backend-service base-url="http://contoso-us.com/" />
+            </when>
+            <when condition="@("East Asia".Equals(context.Deployment.Region, StringComparison.OrdinalIgnoreCase))">
+                <set-backend-service base-url="http://contoso-asia.com/" />
+            </when>
+            <otherwise>
+                <set-backend-service base-url="http://contoso-other.com/" />
+            </otherwise>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
