@@ -3,6 +3,7 @@
 <!-- Share Access policy name should be stored in Name Values in as accessKeyName name/value pair -->
 <!-- Share Access policy key  should be stored in Name Values in as keyName name/value pair. Create this item as a secret for security. -->
 <!-- If creating relay tokens at operation level, remember to create different cache values (e.g. relayTokenGet, relayTokenPut, so you don't overwrite existing tokens for different resources -->
+<!-- Details on this policy can be found on https://notetoself.tech/2018/10/12/combining-api-management-with-azure-relays/ -->
 <policies>
 	<inbound>
 		<!-- Add your wcf relay address as the base URL below -->
