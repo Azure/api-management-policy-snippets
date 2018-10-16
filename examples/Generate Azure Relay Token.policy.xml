@@ -1,0 +1,66 @@
+<!-- This policy connects to an Azure Relay endpoint that is secured using RelayToken -->
+<!-- It requires an Azure Relay service setup, and a Shared Acess Policy with at least Send permissions -->
+<!-- Share Access policy name should be stored in Name Values in as accessKeyName name/value pair -->
+<!-- Share Access policy key  should be stored in Name Values in as keyName name/value pair. Create this item as a secret for security. -->
+<!-- If creating relay tokens at operation level, remember to create different cache values (e.g. relayTokenGet, relayTokenPut, so you don't overwrite existing tokens for different resources -->
+<policies>
+	<inbound>
+		<!-- Add your wcf relay address as the base URL below -->
+		<set-backend-service base-url="" />
+		<!-- verify if there is a relaytoken key stored in cache -->
+		<cache-lookup-value key="@("relaytoken")" variable-name="relaytoken" />
+		<choose>
+			<!-- If there is no key stored in cache -->
+			<when condition="@(!context.Variables.ContainsKey("relaytoken"))">
+				<set-variable name="resourceUri" value="@(context.Request.Url.ToString())" />
+				<!-- Retrieve Shared Access Policy key from  Name Value store -->
+				<set-variable name="accessKey" value="{{accessKey}}" />
+				<!-- Retrieve Shared Access Policy key name from  Name Value store -->
+				<set-variable name="keyName" value="{{accessKeyName}}" />
+				<!-- Generate the relaytoken key -->
+				<set-variable name="relaytoken" value="@{
+                    TimeSpan sinceEpoch = DateTime.UtcNow - new DateTime(1970, 1, 1);
+                    string expiry =  Convert.ToString((int)sinceEpoch.TotalSeconds + 3600);
+                    string resourceUri = (string)context.Variables["resourceUri"];
+                    string stringToSign = Uri.EscapeDataString (resourceUri) + "\n" + expiry;
+                    HMACSHA256 hmac = new HMACSHA256(Encoding.UTF8.GetBytes((string)context.Variables["accessKey"]));
+                    string signature = Convert.ToBase64String(hmac.ComputeHash(Encoding.UTF8.GetBytes(stringToSign)));
+                    string sasToken = String.Format("SharedAccessSignature sr={0}&sig={1}&se={2}&skn={3}",
+                    Uri.EscapeDataString(resourceUri), Uri.EscapeDataString(signature), expiry, context.Variables["keyName"]);
+                    return sasToken;
+                    }" />
+				<!-- Store the relaytoken in the cache -->
+				<cache-store-value key="relaytoken" value="@((string)context.Variables["relaytoken"])" duration="10" />
+			</when>
+		</choose>
+		<!-- If the operation request uses json format, convert it to XML - Azure Relay expects XML format (based on WCF) -->
+		<set-body template="liquid">
+			<!-- set your body transformation here -->
+		</set-body>
+		<!-- Create the ServiceBusAuthorization header using the relaytoken as value -->
+		<set-header name="ServiceBusAuthorization" exists-action="override">
+			<value>@((string)context.Variables["relaytoken"])</value>
+		</set-header>
+		<!-- Set the content type to application/xml -->
+		<set-header name="Content-Type" exists-action="override">
+			<value>application/xml</value>
+		</set-header>
+		<base />
+	</inbound>
+	<backend>
+		<base />
+	</backend>
+	<outbound>
+	<!-- If the operation responses uses json format, convert it from XML - Azure Relay will return XML format (based on WCF) -->
+		<set-body template="liquid">
+			<!-- set your body transformation here -->
+		</set-body>
+		<!-- Set the content type to application/json -->
+		<set-header name="Content-Type" exists-action="override">
+			<value>application/json</value>
+		</set-header>
+	</outbound>
+	<on-error>
+		<base />
+	</on-error>
+</policies>
