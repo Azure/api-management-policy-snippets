@@ -1,0 +1,61 @@
+<!--
+    This policy routes calls to the closest of two backend services, and fails over to the secondary if an HTTP 404 is returned.
+    
+    It assumes that the API Manager is deployed in 'East US' and 'West Europe'. Similarly the policy (as is) assumes two backend services, in the same regions, vis:
+        https://hello-eus.azurewebsites.net/  (for East US); and
+        https://hello-weu.azurewebsites.net/  (for West Europe)
+
+    If a failure (HTTP 404) is returned from the backend service, the policy will re-route the call to the fail-over region.
+    The policy uses cached values to track which service has returned an error in the last 10 seconds, to avoid routing new requests to a backend which will likely fail.
+-->
+<policies>
+    <inbound>
+        <base />
+        <set-backend-service base-url="https://hello-eus.azurewebsites.net/" />
+        <choose>
+            <when condition="@(context.Deployment.Region.Equals("east us", System.StringComparison.InvariantCultureIgnoreCase))">
+                <set-backend-service base-url="https://hello-eus.azurewebsites.net/" />
+                <cache-lookup-value key="@("eus-down")" variable-name="is-eus-down" />
+                <choose>
+                    <when condition="@(context.Variables.GetValueOrDefault<bool>("is-eus-down"))">
+                        <set-backend-service base-url="https://hello-weu.azurewebsites.net/" />
+                    </when>
+                </choose>
+            </when>
+            <when condition="@(context.Deployment.Region.Equals("west europe", System.StringComparison.InvariantCultureIgnoreCase))">
+                <set-backend-service base-url="https://hello-weu.azurewebsites.net/" />
+                <cache-lookup-value key="@("weu-down")" variable-name="is-weu-down" />
+                <choose>
+                    <when condition="@(context.Variables.GetValueOrDefault<bool>("is-weu-down"))">
+                        <set-backend-service base-url="https://hello-eus.azurewebsites.net/" />
+                    </when>
+                </choose>
+            </when>
+        </choose>
+    </inbound>
+    <backend>
+        <retry condition="@(context.Response.StatusCode == 404)" count="2" interval="1" max-interval="10" delta="1" first-fast-retry="true">
+            <choose>
+                <when condition="@(context.Response != null && (context.Response.StatusCode == 404))">
+                    <choose>
+                        <when condition="@(context.Request.Url.Host.Contains("hello-eus.azurewebsites.net"))">
+                            <set-backend-service base-url="https://hello-weu.azurewebsites.net" />
+                            <cache-store-value key="@("eus-down")" value="@(true)" duration="10" />
+                        </when>
+                        <otherwise>
+                            <set-backend-service base-url="https://hello-eus.azurewebsites.net" />
+                            <cache-store-value key="@("weu-down")" value="@(true)" duration="10" />
+                        </otherwise>
+                    </choose>
+                </when>
+            </choose>
+            <forward-request />
+        </retry>
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
