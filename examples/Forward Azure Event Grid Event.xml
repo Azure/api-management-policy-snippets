@@ -5,6 +5,8 @@
     If you want to support more, then you need to remove the choose that returns a 400 and implement this capability or simply pass the full list downstream.
 
     In order to successfully subscribe to an Azure Event Grid Topic, this policy also handles the initial validation handshake to prove ownership.
+
+    Maintainer: @tomkerkhove
 -->
 <policies>
     <inbound>
