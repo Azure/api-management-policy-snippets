@@ -1,7 +1,7 @@
 <!-- The policy defined in this file provides an example of using OAuth2 for authorization between the gateway and a backend. -->
-<!-- It shows how to obtain an access token from AAD and forward it to the backend. -->
+<!-- It shows how to obtain an access token from Azure AD and forward it to the backend. -->
 
-<!-- Send request to AAD to obtain a bearer token -->
+<!-- Send request to Azure AD to obtain a bearer token -->
 <!-- Parameters: authorizationServer - format https://login.windows.net/TENANT-GUID/oauth2/token -->
 <!-- Parameters: scope - a URI encoded scope value -->
 <!-- Parameters: clientId - an id obtained during app registration -->
@@ -20,7 +20,10 @@
         </set-header>
         <set-body>
           @{
-          return "client_id={{clientId}}&resource={{scope}}&client_secret={{clientSecret}}&grant_type=client_credentials";
+              return "client_id={{clientId}}&resource={{scope}}&client_secret={{clientSecret}}&grant_type=client_credentials";
+
+              // For identity providers other than Azure AD, try return statement below
+              // return "client_id={{clientId}}&scope={{scope}}&client_secret={{clientSecret}}&grant_type=client_credentials";
           }
         </set-body>
       </send-request>
