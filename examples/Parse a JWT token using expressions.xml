@@ -1,0 +1,53 @@
+<!-- 
+    The policy defined in this file shows how to parse a JSON Web Token (JWT) and conditionally execute policies based on the values of a claim. 
+
+    Assuming the payload of our JWTs looks like below and the scenario is to check the "permissions" claim.
+
+    {
+        "sub": "1234567890",
+        "name": "John Doe",
+        "iat": 1516239022,
+        "exp": 1557007909,
+        "permissions": ["sendEmail", "sendText"]
+    }
+-->
+
+<policies>
+    <inbound>
+        <base />
+
+        <!-- 
+          First, check the signature and expiration of the JWT using validate-jwt policy 
+         
+          The policy will output the jwt into a variable called valid-jwt
+        -->
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true" clock-skew="0" output-token-variable-name="valid-jwt">
+            <issuer-signing-keys>
+                <key>bXlzZWNyZXR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHQ=</key>
+            </issuer-signing-keys>
+        </validate-jwt>
+        
+        <!--
+          Now, we can inspect the JWT with policy expressions and check the values in "permissions"
+        -->
+        <choose>
+            <when condition="@{
+                var jwt = (Jwt)context.Variables["valid-jwt"];
+                var permissions = jwt.Claims["permissions"];
+                return Array.Exists(permissions, element => element == "sendEmail");
+            }">
+                <!-- Do something here -->
+            </when>
+            <otherwise />
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
