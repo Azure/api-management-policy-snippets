@@ -21,9 +21,9 @@
          
           The policy will output the jwt into a variable called valid-jwt
         -->
-        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized" require-expiration-time="true" require-scheme="Bearer" require-signed-tokens="true" clock-skew="0" output-token-variable-name="valid-jwt">
+        <validate-jwt header-name="Authorization" output-token-variable-name="valid-jwt">
             <issuer-signing-keys>
-                <key>bXlzZWNyZXR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHR0dHQ=</key>
+                <key>{{signing-key}}</key>
             </issuer-signing-keys>
         </validate-jwt>
         
