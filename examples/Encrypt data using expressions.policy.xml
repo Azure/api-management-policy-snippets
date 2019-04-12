@@ -1,0 +1,32 @@
+<!-- 
+    The policy defined in this file shows how to encrypt a parameter using AES algorithm.
+-->
+
+<policies>
+    <inbound>
+        <base />
+        <set-variable name="IV" value="{{AES-IV}}" />
+        <set-variable name="key" value="{{AES-Key}}" />
+        <set-variable name="encryptedParameter" value="@{
+
+            string goober = (string)context.Request.MatchedParameters["Goober"];
+            byte[] gooberBytes = Encoding.UTF8.GetBytes(goober);
+            
+            byte[] IV = Convert.FromBase64String((string)context.Variables["IV"]);
+            byte[] key = Convert.FromBase64String((string)context.Variables["key"]);
+            
+            byte[] encryptedBytes = gooberBytes.Encrypt("Aes", key, IV);
+            
+            return Convert.ToBase64String(encryptedBytes);
+        }" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
