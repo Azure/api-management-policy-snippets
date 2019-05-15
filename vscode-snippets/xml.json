@@ -60,19 +60,19 @@
     },
     "cache-lookup": {
         "prefix": "cache-lookup",
-        "description": "Perform cache lookup and return a valid cached response when available. Appropriately respond to cache validation requests from callers. Use anywhere in the inbound section at Product, API, or Operation scopes.",
+        "description": "Perform cache lookup and return a cached response when available. Appropriately respond to cache validation requests from callers. Use anywhere in the inbound section at Product, API, or Operation scopes.",
         "body": [
-            "<cache-lookup vary-by-developer=\"${1|true,false|}\" vary-by-developer-groups=\"${2|true,false|}\" downstream-caching-type=\"${3|none,private,public|}\" must-revalidate=\"${4|true,false|}\" allow-private-response-caching=\"${4|true,false|}\">",
-            "\t<vary-by-header>${5:header name}</vary-by-header>",
-            "\t<vary-by-query-parameter>${6:query parameter}</vary-by-query-parameter>",
+            "<cache-lookup caching-type=\"${1|prefer-external,external,internal|}\" vary-by-developer=\"${2|true,false|}\" vary-by-developer-groups=\"${3|true,false|}\" downstream-caching-type=\"${4|none,private,public|}\" must-revalidate=\"${5|true,false|}\" allow-private-response-caching=\"${6|true,false|}\">",
+            "\t<vary-by-header>${7:header name}</vary-by-header>",
+            "\t<vary-by-query-parameter>${8:query parameter}</vary-by-query-parameter>",
             "</cache-lookup>"
         ]
     },
     "cache-lookup-value": {
         "prefix": "cache-lookup-value",
-        "description": "Perform cache lookup and returned value under the key, if available, or default. If value is not present and no default is specified, variable will not be set. Use at any scope in any section except <backend>.",
+        "description": "Perform cache lookup and return value under the key, if available, or default. If value is not present and no default is specified, variable will not be set. Use at any scope in any section except <backend>.",
         "body": [
-            "<cache-lookup-value key=\"$1\" default-value=\"$2\" variable-name=\"$3\" />"
+            "<cache-lookup-value caching-type=\"${1|prefer-external,external,internal|}\" key=\"$2\" default-value=\"$3\" variable-name=\"$4\" />"
         ]
     },
     "cache-remove-value": {
