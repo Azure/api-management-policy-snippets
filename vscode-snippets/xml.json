@@ -435,5 +435,12 @@
             "\t</xsl:stylesheet>",
             "</xsl-transform>"
         ]
+    },
+    "authentication-managed-identity": {
+        "prefix": "authentication-managed-identity",
+        "description": "Obtain a token to a resource from Azure AD using managed identity of the Azure API Management service and send it to a backend in the Authorization header.",
+        "body": [
+            "<authentication-managed-identity resource=\"$1\" output-token-variable-name=\"$2\" ignore-error=\"${4|true,false|}\" />"
+        ]
     }
 }
