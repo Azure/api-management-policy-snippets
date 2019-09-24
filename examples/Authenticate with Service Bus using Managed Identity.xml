@@ -1,4 +1,4 @@
-<!-- The policy defined in this file provides an example of how to send messages to a Service Bus queue/topic. -->
+<!-- The policy defined in this file provides an example of how to authenticate against Service Bus using Managed Identity and send a message to a queue/topic. -->
 
 <!-- Parameters: serviceBusNamespace - Name of your Service Bus namespace -->
 <!-- Parameters: queue/topic - Name of your queue/topic -->
