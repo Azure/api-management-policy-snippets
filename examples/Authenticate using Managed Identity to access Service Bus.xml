@@ -1,0 +1,31 @@
+<!-- The policy defined in this file provides an example of how to authenticate using Managed Identity to access Service Bus and send a message to a queue/topic. -->
+
+<!-- Parameters: serviceBusNamespace - Name of your Service Bus namespace -->
+<!-- Parameters: queue/topic - Name of your queue/topic -->
+
+<policies>
+  <inbound>
+    <base />
+    <authentication-managed-identity resource="https://servicebus.azure.net" output-token-variable-name="msi-access-token" ignore-error="false" />
+    <set-header name="Authorization" exists-action="override">
+      <value>@((string)context.Variables["msi-access-token"])</value>
+    </set-header>
+    <set-body>
+      {  
+        "Body": "This is the 1st message",  
+        "BrokerProperties":{"Label":"M3"},  
+        "UserProperties":{"Priority":"Medium","Customer":"ABC"}  
+      }
+    </set-body>
+    <set-backend-service base-url="https://{{serviceBusNamespace}}.servicebus.windows.net/{{queue/topic}}/messages" />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
