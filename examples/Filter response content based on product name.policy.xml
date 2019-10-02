@@ -15,10 +15,10 @@
   <outbound>
     <base />
     <choose>
-      <when condition="@(context.Response.StatusCode == 200 && context.Product.Name.Equals("Starter="""))">
+      <when condition="@(context.Response.StatusCode == 200 && context.Product.Name.Equals("Starter"))">
         <set-body>
           @{
-            <!-- NOTE that we are not using preserveContent=true when deserializing response body stream into a JSON object since we don't intend to access it again. See details on https://docs.microsoft.com/en-us/azure/api-management/api-management-transformation-policies#SetBody -->
+            //NOTE that we are not using preserveContent=true when deserializing response body stream into a JSON object since we don't intend to access it again. See details on https://docs.microsoft.com/en-us/azure/api-management/api-management-transformation-policies#SetBody
             var response = context.Response.Body.As<JObject>();
             foreach (var key in new [] {"minutely", "hourly", "daily", "flags"}) {
             response.Property (key).Remove ();
