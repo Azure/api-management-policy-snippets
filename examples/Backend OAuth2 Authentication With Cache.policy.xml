@@ -1,0 +1,54 @@
+<!-- The policy defined in this file provides an example of using OAuth2 for authorization between the gateway and a backend -->
+<!-- It shows how to obtain an access token from AAD, cache it for a configurable amount of time and forward it to the backend. -->
+<!-- The sample is based on the original OAuth2 example provided previously
+
+<!-- Send request to AAD to obtain a bearer token -->
+<!-- Parameters: authorizationServer - format https://login.windows.net/TENANT-GUID/oauth2/token -->
+<!-- Parameters: scope - a URI encoded scope value -->
+<!-- Parameters: clientId - an id obtained during app registration -->
+<!-- Parameters: clientSecret - a URL encoded secret, obtained during app registration -->
+<!-- Parameters: tokenExpiresSeconds - a value indicating the time in seconds the token should be cached -->
+
+
+<!-- Copy the following snippet into the inbound section. -->
+<policies>
+    <inbound>
+        <base />
+        <cache-lookup-value key="@("bearerToken")" variable-name="bearerToken" />
+        <choose>
+            <when condition="@(!context.Variables.ContainsKey("bearerToken"))">
+                <send-request ignore-error="true" timeout="20" response-variable-name="accessToken" mode="new">
+                    <set-url>{{authorizationServer}}</set-url>
+                    <set-method>POST</set-method>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/x-www-form-urlencoded</value>
+                    </set-header>
+                    <set-body>@{
+              return "client_id={{clientId}}&scope={{scope}}&client_secret={{clientSecret}}&grant_type=client_credentials";
+                    }</set-body>
+                </send-request>
+                <set-variable name="bearerToken" value="@((String)((IResponse)context.Variables["accessToken"]).Body.As<JObject>()["access_token"])" />
+                <cache-store-value key="bearerToken" value="@((string)context.Variables["bearerToken"])" duration="{{tokenExpiresSeconds}}" />
+            </when>
+        </choose>
+        <set-header name="Authorization" exists-action="override">
+            <value>@("Bearer " + (string)context.Variables["bearerToken"])</value>
+        </set-header>
+        <!--  Don't expose APIM subscription key to the backend. -->
+        <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <choose>
+            <when condition="@(context.Response.StatusCode == 401 || context.Response.StatusCode == 403)">
+                <cache-remove-value key="bearerToken" />
+            </when>
+        </choose>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
