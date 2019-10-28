@@ -27,7 +27,7 @@
                     }</set-body>
                 </send-request>
                 <set-variable name="bearerToken" value="@((String)((IResponse)context.Variables["accessToken"]).Body.As<JObject>()["access_token"])" />
-                <set-variable name="tokenDurationSeconds" value="@((String)((IResponse)context.Variables["accessToken"]).Body.As<JObject>()["expires_in"])"
+                <set-variable name="tokenDurationSeconds" value="@((String)((IResponse)context.Variables["accessToken"]).Body.As<JObject>()["expires_in"])" />
                 <cache-store-value key="bearerToken" value="@((string)context.Variables["bearerToken"])" duration="@((string)context.Variables["tokenDurationSeconds"])" />
             </when>
         </choose>
