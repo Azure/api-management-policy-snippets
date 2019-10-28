@@ -7,7 +7,6 @@
 <!-- Parameters: scope - a URI encoded scope value -->
 <!-- Parameters: clientId - an id obtained during app registration -->
 <!-- Parameters: clientSecret - a URL encoded secret, obtained during app registration -->
-<!-- Parameters: tokenExpiresSeconds - a value indicating the time in seconds the token should be cached -->
 
 
 <!-- Copy the following snippet into the inbound section. -->
@@ -27,8 +26,10 @@
               return "client_id={{clientId}}&scope={{scope}}&client_secret={{clientSecret}}&grant_type=client_credentials";
                     }</set-body>
                 </send-request>
-                <set-variable name="bearerToken" value="@((String)((IResponse)context.Variables["accessToken"]).Body.As<JObject>()["access_token"])" />
-                <cache-store-value key="bearerToken" value="@((string)context.Variables["bearerToken"])" duration="{{tokenExpiresSeconds}}" />
+                <set-variable name="accessToken" value="@(((IResponse)context.Variables["accessTokenResult"]).Body.As<JObject>())" />
+                <set-variable name="bearerToken" value="@((string)((JObject)context.Variables["accessToken"])["access_token"])" />
+                <set-variable name="tokenDurationSeconds" value="@((int)((JObject)context.Variables["accessToken"])["expires_in"])" />
+                <cache-store-value key="bearerToken" value="@((string)context.Variables["bearerToken"])" duration="@((int)context.Variables["tokenDurationSeconds"])" />
             </when>
         </choose>
         <set-header name="Authorization" exists-action="override">
