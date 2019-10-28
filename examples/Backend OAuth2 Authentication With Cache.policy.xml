@@ -26,8 +26,9 @@
               return "client_id={{clientId}}&scope={{scope}}&client_secret={{clientSecret}}&grant_type=client_credentials";
                     }</set-body>
                 </send-request>
-                <set-variable name="bearerToken" value="@((String)((IResponse)context.Variables["accessToken"]).Body.As<JObject>()["access_token"])" />
-                <set-variable name="tokenDurationSeconds" value="@((int)((IResponse)context.Variables["accessToken"]).Body.As<JObject>()["expires_in"])" />
+                <set-variable name="accessToken" value="@(((IResponse)context.Variables["accessTokenResult"]).Body.As<JObject>())" />
+                <set-variable name="bearerToken" value="@((string)((JObject)context.Variables["accessToken"])["access_token"])" />
+                <set-variable name="tokenDurationSeconds" value="@((int)((JObject)context.Variables["accessToken"])["expires_in"])" />
                 <cache-store-value key="bearerToken" value="@((string)context.Variables["bearerToken"])" duration="@((int)context.Variables["tokenDurationSeconds"])" />
             </when>
         </choose>
