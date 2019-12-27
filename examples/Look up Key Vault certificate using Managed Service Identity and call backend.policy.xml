@@ -1,0 +1,46 @@
+<!--
+    The policy defined in this file demonstrates how to retrieve a secret from Key Vault using Managed Identity for authentication.
+    This is useful when secrets or other secure data is required from Key Vault to use when calling backends or any other purpose.
+    Cache is used to avoid calling Key Vault on every request and duration attribute on line 31 controls how often to call Key Vault to fetch the secret. 
+
+    This example shows how to retrieve the latest version of a secret called 'mycert' from a Key Vault called 'msikvtest', which you should change to your own. All it does is call the Key Vault Rest API via send-request using the Managed Identity authorization method, and responds with the response of the Key Vault Rest API call using return-response.
+    Make sure to enable Managed Identities on your API Management instance, and add the appropriate Access Policy in Key Vault so that your API Management account's Managed Identity principal can access secrets. You can use the Azure CLI to find the name of the principal by using 'az ad sp show' and pass it the principal ID, and then use that name when configuring the Key Vault access policy.
+    User assigned identity can be used by adding the optional client-id attribute on line 26
+
+    NOTE - You should not use return secrets in your responses when running in production as this expose your secrets and introduces a security risk of credential leaking without the vault owner knowing it.
+           People should request access to the vault owner and consume the secrets from there instead of via a wrapping API.
+           However, it clearly shows how easily you can integrate with MSI and can be used for POC purposes
+    
+    Maintainer: @nzthiago
+-->
+<policies>
+    <inbound>
+        <!-- check the cache for secret first -->
+        <cache-lookup-value key="mycert" variable-name="keyVaultCertBase64" />
+        <!-- call Key Vault if secret is not found in the cache -->
+        <choose>
+            <when condition="@(!context.Variables.ContainsKey("keyVaultCertResponse"))">
+                <send-request mode="new" response-variable-name="keyVaultCertResponse" timeout="20" ignore-error="false">
+                    <set-url>https://msikvtest.vault.azure.net/secrets/mycert/?api-version=2016-10-01</set-url>
+                    <set-method>GET</set-method>
+                    <authentication-managed-identity resource="https://vault.azure.net" />
+                </send-request>
+                <!-- transform response to string and store in cache -->
+                <set-variable name="keyVaultCertBase64" value="@(((IResponse)context.Variables["keyVaultCertResponse"]).Body.As<JObject>()["value"].ToString())" />
+                <cache-store-value key="mycert" value="@((string)context.Variables["keyVaultCertBase64"])" duration="3600" />
+            </when>
+        </choose>
+        <base />
+    </inbound>
+    <backend>
+        <authentication-certificate body="@(Convert.FromBase64String((string)context.Variables["keyVaultCertBase64"]))" />
+
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
