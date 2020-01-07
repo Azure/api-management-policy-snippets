@@ -10,8 +10,9 @@
     NOTE - You should not use return secrets in your responses when running in production as this expose your secrets and introduces a security risk of credential leaking without the vault owner knowing it.
            People should request access to the vault owner and consume the secrets from there instead of via a wrapping API.
            However, it clearly shows how easily you can integrate with MSI and can be used for POC purposes
-    
-    Maintainer: @nzthiago
+     
+    HINT - sending the request to 3rd party test service like https://server.cryptomix.com/secure/ or https://prod.idrix.eu/secure/ can return certificate properties for testing.
+
 -->
 <policies>
     <inbound>
@@ -30,11 +31,11 @@
                 <cache-store-value key="mycert" value="@((string)context.Variables["keyVaultCertBase64"])" duration="3600" />
             </when>
         </choose>
+
+        <authentication-certificate body="@(Convert.FromBase64String((string)context.Variables["keyVaultCertBase64"]))" />
         <base />
     </inbound>
     <backend>
-        <authentication-certificate body="@(Convert.FromBase64String((string)context.Variables["keyVaultCertBase64"]))" />
-
         <base />
     </backend>
     <outbound>
