@@ -1,0 +1,83 @@
+<!-- 
+    The policy defined in this file shows how to filter request IPs when the API Management instance 
+    is accessed from an Application Gateway.  The Application Gateway will write the original request
+    IP to the "X-Forwarded-For" header.  The set-header policy evaluates this IP address against a list of
+    IP ranges (if any).  If a match is found, a value is written to the X-Forwarded-For header and the
+    following check-header policy will validate the match.  If no match is found 
+-->
+<policies>
+	<inbound>
+		<base />
+		<set-variable name="originalXForwardedForValue" value="@(context.Request.Headers.GetValueOrDefault("X-Forwarded-For"))" />
+		<set-header name="X-Forwarded-For" exists-action="override">
+			<value>@{
+            int HostToNetworkOrder(int host)
+            {
+                return (((int)HostToNetworkOrderShort((short)host) & 0xFFFF) << 16)
+                    | ((int)HostToNetworkOrderShort((short)(host >> 16)) & 0xFFFF);
+            }
+            short HostToNetworkOrderShort(short host)
+            {
+                return (short)((((int)host & 0xFF) << 8) | (int)((host >> 8) & 0xFF));
+            }
+            
+            string ipAddress = context.Request.Headers.GetValueOrDefault("x-forwarded-for",""); 
+            if (!string.IsNullOrEmpty(ipAddress))
+            {
+                string[] tokens = ipAddress.Split(':'); 
+                if(tokens.Length == 2) 
+                { ipAddress = tokens[0]; } 
+
+                List<string> cidrList = new List<string>(){
+                    "10.0.0.0/8",
+                    "172.0.0.0/24",
+                    "192.168.0.0/24",
+                    "45.33.215.0/24"
+                };
+                foreach (string cidrAddress in cidrList)
+                {
+                    string[] cidrParts = cidrAddress.Split('/');
+                    string[] inputIPParts = ipAddress.Split('.');
+                    string[] cidrIPArray = cidrParts[0].Split('.');
+
+                    if (inputIPParts.Length == 4 && cidrIPArray.Length == 4)
+                    {
+                        byte[] inputIPBytes = new byte[] {Convert.ToByte(int.Parse(inputIPParts[0])), 
+                            Convert.ToByte(int.Parse(inputIPParts[1])), 
+                            Convert.ToByte(int.Parse(inputIPParts[2])),
+                            Convert.ToByte(int.Parse(inputIPParts[3])), };
+                        byte[] cidrIPBytes = new byte[] {Convert.ToByte(int.Parse(cidrIPArray[0])), 
+                            Convert.ToByte(int.Parse(cidrIPArray[1])), 
+                            Convert.ToByte(int.Parse(cidrIPArray[2])),
+                            Convert.ToByte(int.Parse(cidrIPArray[3])), };
+                
+                        int cidrAddr = BitConverter.ToInt32(inputIPBytes,0);
+                        int ipAddr = BitConverter.ToInt32(cidrIPBytes,0);
+                        
+                        var host = int.Parse(cidrParts[1]);
+                        host = -1 << (32-host);
+                        var mask = HostToNetworkOrder(host);
+                        
+                        if (((ipAddr & mask) == (cidrAddr & mask)))
+                        {
+                            return "{{ipValidated}}";
+                        }
+                    }
+                }
+            }
+            return ipAddress; }</value>
+		</set-header>
+		<check-header name="x-forwarded-for" failed-check-httpcode="403" failed-check-error-message="Unauthorized" ignore-case="true">
+			<value>45.33.215.173</value>
+			<value>45.33.215.175</value>
+			<value>{{ipValidated}}</value>
+		</check-header>
+        <!-- Revert X-Forwarded-For to its original value-->
+		<set-header name="X-Forwarded-For" exists-action="override">
+			<value>@{
+                return context.Variables.GetValueOrDefault<string>("originalXForwardedForValue");
+                }
+            </value>
+		</set-header>
+    </inbound>
+</policies>
