@@ -8,8 +8,10 @@
 <policies>
 	<inbound>
 		<base />
+        <!-- Save the X-Forwarded-For value -->
 		<set-variable name="originalXForwardedForValue" value="@(context.Request.Headers.GetValueOrDefault("X-Forwarded-For"))" />
-		<set-header name="X-Forwarded-For" exists-action="override">
+		<!-- Check the client IP value in the X-Forwarded-For header-->
+        <set-header name="X-Forwarded-For" exists-action="override">
 			<value>@{
             int HostToNetworkOrder(int host)
             {
@@ -27,12 +29,11 @@
                 string[] tokens = ipAddress.Split(':'); 
                 if(tokens.Length == 2) 
                 { ipAddress = tokens[0]; } 
-
+                //Place IP Ranges into this list in CIDR notation (e.g. "0.0.0.0/0") and separate with commas
                 List<string> cidrList = new List<string>(){
                     "10.0.0.0/8",
                     "172.0.0.0/24",
-                    "192.168.0.0/24",
-                    "45.33.215.0/24"
+                    "192.168.0.0/24"
                 };
                 foreach (string cidrAddress in cidrList)
                 {
@@ -68,8 +69,8 @@
             return ipAddress; }</value>
 		</set-header>
 		<check-header name="x-forwarded-for" failed-check-httpcode="403" failed-check-error-message="Unauthorized" ignore-case="true">
-			<value>45.33.215.173</value>
-			<value>45.33.215.175</value>
+			<value>10.33.215.173</value>
+			<value>10.33.215.175</value>
 			<value>{{ipValidated}}</value>
 		</check-header>
         <!-- Revert X-Forwarded-For to its original value-->
