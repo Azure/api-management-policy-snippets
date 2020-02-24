@@ -20,7 +20,7 @@
         <cache-lookup-value key="mycert" variable-name="keyVaultCertBase64" />
         <!-- call Key Vault if secret is not found in the cache -->
         <choose>
-            <when condition="@(!context.Variables.ContainsKey("keyVaultCertResponse"))">
+            <when condition="@(!context.Variables.ContainsKey("keyVaultCertBase64"))">
                 <send-request mode="new" response-variable-name="keyVaultCertResponse" timeout="20" ignore-error="false">
                     <set-url>https://msikvtest.vault.azure.net/secrets/mycert/?api-version=2016-10-01</set-url>
                     <set-method>GET</set-method>
