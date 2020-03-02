@@ -7,7 +7,9 @@
 <policies>
     <inbound>
         <base />
-        <cache-lookup-value key="azureManagementApiTokenCacheKey" default-value="-noToken-" variable-name="azureManagementApiToken" />
+        
+        <!-- Authenticate by using a service pricinciple -->
+        <!-- <cache-lookup-value key="azureManagementApiTokenCacheKey" default-value="-noToken-" variable-name="azureManagementApiToken" />
         <choose>
             <when condition="@((string)context.Variables["azureManagementApiToken"] == "-noToken-")">
                 <send-request mode="new" response-variable-name="tokenResponse" timeout="5" ignore-error="false">
@@ -31,7 +33,15 @@
                     <value>@(String.Concat("Bearer ", ((string)context.Variables.GetValueOrDefault("azureManagementApiToken"))))</value>
                 </set-header>
             </otherwise>
-        </choose>
+        </choose> -->
+
+        <!-- Authenticate by using a managed identity -->
+        <authentication-managed-identity resource="https://management.azure.com" ignore-error="false" output-token-variable-name="managed-identity-token" />
+        <set-header name="Authorization" exists-action="override">
+            <value>@(String.Concat("Bearer ", ((string)context.Variables.GetValueOrDefault("managed-identity-token"))))</value>
+        </set-header>
+
+        <!-- Change backend service to talk to ARM APIs -->
         <set-backend-service base-url="https://management.azure.com" />
         <set-header name="Content-Type" exists-action="override">
             <value>application/json</value>
