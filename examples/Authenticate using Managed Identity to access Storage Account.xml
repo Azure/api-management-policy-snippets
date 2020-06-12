@@ -1,0 +1,36 @@
+<!-- The policy defined in this file provides an example of how to authenticate using Managed Identity to access Storage Account and read a blob. -->
+
+<!-- Parameters: storageaccountname - Name of your Azure Storage Account -->
+<!-- Parameters: blobtoread - Name of the Blob you want to read contents from. -->
+<!-- Steps required -->
+<!-- 1. Enable System-Assigned Managed Identity on API Management instance -->
+<!-- 2. Assign API Management instance principalId as Storage Blob Data Contributor Role in the Azure Storage Account -->
+<!-- 3. You can optionally restrict Storage Account to be accessible only by Trusted services in Firewalls/VirtualNetwork in the Storage Account. -->
+
+<policies>
+    <inbound>
+        <send-request mode="new" timeout="20" response-variable-name="blobdata" ignore-error="false">
+            <set-url>https://{{storageaccountname}}.blob.core.windows.net/container/{{blobtoread}}</set-url>
+            <set-method>GET</set-method>
+            <set-header name="x-ms-version" exists-action="override">
+                <value>2019-07-07</value>
+            </set-header>
+            <authentication-managed-identity resource="https://storage.azure.com" />
+        </send-request>
+        <return-response>
+            <set-status code="200" reason="OK" />
+            <set-body>@($"{((IResponse)context.Variables["blobdata"]).Body.As<JObject>() }")</set-body>
+        </return-response>
+        <base />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
+
