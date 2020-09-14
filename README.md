@@ -4,6 +4,10 @@
 
 The `examples/` folder contains policy examples contributed by the product team and the user community. The samples are meant to be re-used verbatim, provide inspiration or serve as learning aids. Some of them are parameterized using [Named Values](https://docs.microsoft.com/en-us/azure/api-management/api-management-howto-properties) (formerly known as Properties), which look like this: `{{some-value}}`. When using parametrized samples, you will have to either define relevant Named Values or replace them with values in place.
 
+# Policy expressions cheat-sheet
+
+The `policy-expressions` folder contains a [cheat-sheet](policy-expressions/README.md) with common policy expressions that are often used when authoring Azure API Management policies.
+
 # Visual Studio Code snippets
 
 The `vscode-snippets/` folder contains user snippets for Visual Studio Code. User snippets are helpful for streamlining workflow and simplifying document editing with autocomplete and easy navigation. Please, refer to the [Visual Studio Code documentation](https://code.visualstudio.com/docs/editor/userdefinedsnippets) on how to use them.
