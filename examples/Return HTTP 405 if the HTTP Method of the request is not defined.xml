@@ -1,0 +1,32 @@
+<!-- The policy translates the HTTP status code from 404 to 405 when the HTTP Method of the request doesn't match the one defined in the corresponding Operation. -->
+<!-- For example, if the client send a GET request to a POST operation, instead of returning HTTP 404 which is the default behavior of APIM, this policy returns HTTP 405. -->
+<!-- Copy the following snippet into the on-error section. -->
+<!-- Replace `/echo/resource-cached` with the actual path of your operation. -->
+<policies>
+    <inbound>
+        <base />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+        <choose>
+            <when condition="@(context.LastError.Source == "configuration" && context.Request.Url.Path == "/echo/resource-cached")">
+                <return-response>
+                    <set-status code="405" reason="Method not allowed" />
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("status", "HTTP 405"),
+                            new JProperty("message", "Method not allowed")
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+            <otherwise />
+        </choose>
+    </on-error>
+</policies>
