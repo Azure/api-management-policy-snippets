@@ -14,7 +14,7 @@
 		<base />
 		<set-variable name="subscriptionKey" value="@(context.Request.Headers.GetValueOrDefault("Ocp-Apim-Subscription-Key=""","scheme="" param="""))" />
 		<send-request mode="new" response-variable-name="requestResponse" timeout="300" ignore-error="false">
-			<set-url>https://localhost/echo/test</set-url>
+			<set-url>https://localhost/{your apim endpoint url}</set-url>
 			<set-method>GET</set-method>
 			<set-header name="content-type" exists-action="override">
 				<value>application/json</value>
