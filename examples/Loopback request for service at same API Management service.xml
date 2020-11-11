@@ -1,0 +1,40 @@
+<!--
+    Send request for a service hosted at same API Management service that is deployed with a virtual network
+
+    This policy will ensure that your API Management service instance knows how to redirect the request into a service that is hosted on the same API Management service instance when is deployed with a virtual network.
+	
+	Ensure that you add/set a HOST header with API Management service's domain for the request that could be redirected back into the same API Management service instance.
+	
+	Subcription key is retrived from the original request to be forward into the new request. Save the new request result into a variable to return after request.
+
+    Maintainer: @gfchaves
+-->
+<policies>
+	<inbound>
+		<base />
+		<set-variable name="subscriptionKey" value="@(context.Request.Headers.GetValueOrDefault("Ocp-Apim-Subscription-Key=""","scheme="" param="""))" />
+		<send-request mode="new" response-variable-name="requestResponse" timeout="300" ignore-error="false">
+			<set-url>https://localhost/{your API Management service endpoint url}</set-url>
+			<set-method>GET</set-method>
+			<set-header name="content-type" exists-action="override">
+				<value>application/json</value>
+			</set-header>
+			<set-header name="HOST" exists-action="override">
+				<value>{your API Management service domain}</value>
+			</set-header>
+			<set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
+				<value>@($"{(string)context.Variables["subscriptionKey"]}")</value>
+			</set-header>
+		</send-request>
+		<return-response response-variable-name="requestResponse" />
+	</inbound>	
+	<backend>
+		<base />
+	</backend>
+	<outbound>
+		<base />
+	</outbound>
+	<on-error>
+		<base />
+	</on-error>
+</policies>
