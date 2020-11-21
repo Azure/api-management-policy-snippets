@@ -1,0 +1,54 @@
+<!--
+    This policy sample is a request that Azure API Management service produces into a blob storage account to delete a file with metada.
+
+    This intends to authenticate with managed-identity account between Azure API Management service and the storage account.
+    If you want, you can specify another account to get the token:
+    
+        <authentication-managed-identity resource="https://storage.azure.com/" client-id="{application-id}" output-token-variable-name="msi-access-token" ignore-error="false" />
+
+    Usage:         
+        StorageAccount.Name => as named value on you Azure API Management service instance with the values of the storage account name;
+        BlobContainer => as part of the HTTP request header collection with name of the storage container to save/get the file;
+        FileNameWithExtension => as part of the HTTP request header collection with name and extension of the file you want to save/get;
+        Gateway.Name => as named value on you Azure API Management service with the custom domain of the gateway;
+
+    Maintainer: gfchaves
+-->
+<policies>
+    <inbound>
+        <base />
+        <!-- First get the auth token with managed-identity from the storage account and save it on a output token -->
+        <authentication-managed-identity resource="https://storage.azure.com/" output-token-variable-name="msi-access-token" ignore-error="false" />
+        
+        <!-- Send the DELETE request with metadata -->
+        <send-request mode="new" response-variable-name="result" timeout="300" ignore-error="false">
+            <!-- Get variables to configure your: storageaccount, destination container and file name with extension -->            
+            <set-url>@{ return "https://{{StorageAccount.Name}}.blob.core.windows.net/" + (string)context.Request.Headers.GetValueOrDefault("BlobContainer") + "/" +(string)context.Request.Headers.GetValueOrDefault("FileNameWithExtension"); }</set-url>            
+            <set-method>DELETE</set-method>
+            <set-header name="Host" exists-action="override">
+                <value>{{StorageAccount.Name}}.blob.core.windows.net</value>
+            </set-header>
+            <set-header name="User-Agent" exists-action="override">
+                <value>{{Gateway.Name}}</value>
+            </set-header>          
+            <set-header name="X-Ms-Version" exists-action="override">
+                <value>2019-12-12</value>
+            </set-header>         
+            <!-- Set the header with authorization bearer token that was previously requested -->
+            <set-header name="Authorization" exists-action="override">
+                <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+            </set-header>            
+        </send-request>
+        <!-- Returns directly the response from the storage account -->
+        <return-response response-variable-name="result" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
