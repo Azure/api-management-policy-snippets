@@ -8,8 +8,8 @@
     
     Usage:         
         StorageAccount.Name => as named value on you Azure API Management service instance with the values of the storage account name;
-        blobContainer => as part of the HTTP request parameters collection with name of the storage container to save/get the file;
-        fileNameWithExtension => as part of the HTTP request parameters collection with name and extension of the file you want to save/get;
+        blobContainer => as part of the HTTP request path with name of the storage container to save/get the file;
+        fileNameWithExtension => as part of the HTTP request path with name and extension of the file you want to save/get;
         Gateway.Name => as named value on you Azure API Management service with the custom domain of the gateway;
 
     Maintainer: gfchaves
@@ -23,7 +23,7 @@
         <!-- Send the GET request with metadata -->
         <send-request mode="new" response-variable-name="result" timeout="300" ignore-error="false">
             <!-- Get variables to configure your: storageaccount, destination container and file name with extension -->            
-            <set-url>@{ return "https://{{StorageAccount.Name}}.blob.core.windows.net/" + (string)context.Request.Url.Query.GetValueOrDefault("blobContainer","") + "/" + (string)context.Request.Url.Query.GetValueOrDefault("fileNameWithExtension",""); }</set-url>            
+            <set-url>@{ return "https://{{StorageAccount.Name}}.blob.core.windows.net/" + (string)context.Request.MatchedParameters("blobContainer") + "/" + (string)context.Request.MatchedParameters("fileNameWithExtension",""); }</set-url>            
             <set-method>GET</set-method>
             <set-header name="Host" exists-action="override">
                 <value>{{StorageAccount.Name}}.blob.core.windows.net</value>
