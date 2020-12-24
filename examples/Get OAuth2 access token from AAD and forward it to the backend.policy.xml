@@ -20,10 +20,10 @@
         </set-header>
         <set-body>
           @{
-              return "client_id={{clientId}}&resource={{scope}}&client_secret={{clientSecret}}&grant_type=client_credentials";
+              return "client_id={{clientId}}&scope={{scope}}&client_secret={{clientSecret}}&grant_type=client_credentials";
 
-              // For identity providers other than Azure AD, try return statement below
-              // return "client_id={{clientId}}&scope={{scope}}&client_secret={{clientSecret}}&grant_type=client_credentials";
+              // For Azure AD v1, try return statement below
+              // return "client_id={{clientId}}&resource={{scope}}&client_secret={{clientSecret}}&grant_type=client_credentials";
           }
         </set-body>
       </send-request>
