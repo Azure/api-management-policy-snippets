@@ -11,8 +11,14 @@
 <policies>
     <inbound>
         <base />
+        <check-header name="Authorization" failed-check-httpcode="401" failed-check-error-message="Not authorized" ignore-case="false">
+		</check-header>
         <choose>
-            <when condition="@(context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().UserId!="{{UserId}}" || context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().Password!="{{Password}}")">
+            <when condition="@(context.Request.Headers.GetValueOrDefault("Authorization").AsBasic()==null 
+            || context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().Password==null 
+            || context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().UserId==null 
+            || context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().UserId!="{{UserId}}" 
+            || context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().Password!="{{Password}}")">
                 <return-response>
                     <set-status code="401" reason="Not authorized" />
                 </return-response>
