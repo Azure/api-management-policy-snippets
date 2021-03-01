@@ -9,24 +9,36 @@
 <!-- Copy the following snippet into the inbound section. -->
 
 <policies>
-    <inbound>
-        <base />
-        <choose>
-            <when condition="@(context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().UserId!="{{UserId}}" || context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().Password!="{{Password}}")">
-                <return-response>
-                    <set-status code="401" reason="Not authorized" />
-                </return-response>
-            </when>
-        </choose>
-        <set-header name="Authorization" exists-action="delete" />
-    </inbound>
-    <backend>
-        <base />
-    </backend>
-    <outbound>
-        <base />
-    </outbound>
-    <on-error>
-        <base />
-    </on-error>
+	<inbound>
+		<base />
+		<check-header name="Authorization" failed-check-httpcode="401" failed-check-error-message="Not authorized" ignore-case="false">
+		</check-header>
+		<choose>
+			<when condition="@(context.Request.Headers.GetValueOrDefault("Authorization").Contains("Bearer"))">
+				<validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="Unauthorized. Access token is missing or invalid." output-token-variable-name="valid-jwt">
+					<openid-config url="{{aad-b2c-openidconnect-metadata-endpoint}}" />
+					<openid-config url="{{keycloak-openidconnect-metadata-endpoint}}" />
+				</validate-jwt>
+			</when>
+			<when condition="@(context.Request.Headers.GetValueOrDefault("Authorization").AsBasic()==null 
+            || context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().Password==null 
+            || context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().UserId==null 
+            || context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().UserId!="{{UserId}}" 
+            || context.Request.Headers.GetValueOrDefault("Authorization").AsBasic().Password!="{{Password}}")">
+				<return-response>
+					<set-status code="401" reason="Not authorized" />
+				</return-response>
+			</when>
+		</choose>
+		<authentication-certificate thumbprint="AD36D13743694E49BD05E05CA1316331670A9605" />
+	</inbound>
+	<backend>
+		<base />
+	</backend>
+	<outbound>
+		<base />
+	</outbound>
+	<on-error>
+		<base />
+	</on-error>
 </policies>
