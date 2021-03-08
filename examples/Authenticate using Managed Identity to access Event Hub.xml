@@ -1,0 +1,36 @@
+<!-- The policy defined in this file provides an example of how to authenticate using Managed Identity to access EventHub Account. -->
+
+<!-- Parameters: eventHubNamespace - Name of your Azure EventHub namespace Account -->
+<!-- Parameters: eventhubname - Name of the EventHub where to push messages. -->
+<!-- Steps required -->
+<!-- 1. Enable System-Assigned Managed Identity on API Management instance -->
+<!-- 2. Assign API Management instance principalId as Azure Event Hubs Data Owner Role in the Eventhub Namespace -->
+<!-- 3. You can optionally restrict EventHub namespace to be accessible only by Trusted services in Firewalls/VirtualNetwork. -->
+
+<policies>
+    <inbound>
+        <!-- base: Begin Api scope -->
+        <!-- base: Begin Product scope -->
+        <rate-limit calls="5" renewal-period="60" />
+        <quota calls="100" renewal-period="604800" />
+        <!-- base: End Product scope -->
+        <!-- base: End Api scope -->
+        <authentication-managed-identity resource="https://eventhubs.azure.net" output-token-variable-name="msi-access-token" ignore-error="false" />
+        <set-header name="Authorization" exists-action="override">
+            <value>@(String.Concat("Bearer ",(string)context.Variables["msi-access-token"]))</value>
+        </set-header>
+        <set-body>{ "Event":"apim-using -aad token", "TrustedService":"AAD" }</set-body>
+        <set-backend-service base-url="https://{{eventHubNamespace}}.servicebus.windows.net/{{eventhubname}}/messages?api-version=2014-01" />
+    </inbound>
+    <backend>
+        <!-- base: Begin Api scope -->
+        <!-- base: Begin Product scope -->
+        <!-- base: Begin Global scope -->
+        <forward-request />
+        <!-- base: End Global scope -->
+        <!-- base: End Product scope -->
+        <!-- base: End Api scope -->
+    </backend>
+    <outbound />
+    <on-error />
+</policies>
