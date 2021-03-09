@@ -4,7 +4,7 @@
 <!-- Parameters: eventhubname - Name of the EventHub where to push messages. -->
 <!-- Steps required -->
 <!-- 1. Enable System-Assigned Managed Identity on API Management instance -->
-<!-- 2. Assign API Management instance principalId as Azure Event Hubs Data Owner Role in the Eventhub Namespace -->
+<!-- 2. Assign API Management instance principalId as Azure Event Hubs Data Sender Role in the Eventhub Namespace -->
 <!-- 3. You can optionally restrict EventHub namespace to be accessible only by Trusted services in Firewalls/VirtualNetwork. -->
 
 <policies>

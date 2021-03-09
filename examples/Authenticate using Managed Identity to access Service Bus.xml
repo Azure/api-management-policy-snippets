@@ -2,6 +2,10 @@
 
 <!-- Parameters: serviceBusNamespace - Name of your Service Bus namespace -->
 <!-- Parameters: queue/topic - Name of your queue/topic -->
+<!-- Steps required -->
+<!-- 1. Enable System-Assigned Managed Identity on API Management instance -->
+<!-- 2. Assign API Management instance principalId as Azure Service Bus Data Sender Role in the Service Bus Namespace -->
+<!-- 3. You can optionally restrict Service Bus namespace to be accessible only by Trusted services in Firewalls/VirtualNetwork. -->
 
 <policies>
   <inbound>
@@ -10,14 +14,12 @@
     <set-header name="Authorization" exists-action="override">
       <value>@((string)context.Variables["msi-access-token"])</value>
     </set-header>
-    <set-body>
-      {  
-        "Body": "This is the 1st message",  
-        "BrokerProperties":{"Label":"M3"},  
-        "UserProperties":{"Priority":"Medium","Customer":"ABC"}  
-      }
-    </set-body>
-    <set-backend-service base-url="https://{{serviceBusNamespace}}.servicebus.windows.net/{{queue/topic}}/messages" />
+    <set-body>{  
+        "Body": "APIM sending request using AAD Token",
+        "BrokerProperties":{"Trusted Service":"APIM"},  
+        "UserProperties":{"Priority":"Medium","Customer":"Contoso"}  
+      }</set-body>
+    <set-backend-service base-url="https://{{serviceBusNamespace}}.servicebus.windows.net/{{queue|topic}}/messages?api-version=2015-01" />
   </inbound>
   <backend>
     <base />
