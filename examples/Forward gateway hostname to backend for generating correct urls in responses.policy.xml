@@ -1,4 +1,4 @@
-<!-- The policy defined in this file demonstrates how to add a Forwarded header in the inbound request to allow the backend API to construct proper URLs.
+<!-- The policy defined in this file demonstrates how to add a Forwarded header in the inbound request to allow the backend API to construct proper URLs.-->
 
 <!-- Forwarded header is defined in the IETF RFC 7239 https://tools.ietf.org/html/rfc7239  -->
 
