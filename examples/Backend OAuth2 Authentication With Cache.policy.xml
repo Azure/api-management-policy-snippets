@@ -16,7 +16,7 @@
         <cache-lookup-value key="@("bearerToken")" variable-name="bearerToken" />
         <choose>
             <when condition="@(!context.Variables.ContainsKey("bearerToken"))">
-                <send-request ignore-error="true" timeout="20" response-variable-name="accessToken" mode="new">
+                <send-request ignore-error="true" timeout="20" response-variable-name="accessTokenResult" mode="new">
                     <set-url>{{authorizationServer}}</set-url>
                     <set-method>POST</set-method>
                     <set-header name="Content-Type" exists-action="override">
