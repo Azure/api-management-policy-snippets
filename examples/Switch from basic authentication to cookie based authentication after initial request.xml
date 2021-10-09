@@ -1,0 +1,34 @@
+<policies>
+    <inbound>
+        <base />
+        <set-backend-service base-url="{{MYBACKEND_URL}}" />
+        <cache-lookup-value key="BACKEND-COOKIE" default-value="" variable-name="backendCookie" />
+        <choose>
+            <when condition="@(context.Request.Method == "GET" && context.Variables.GetValueOrDefault<string>("backendCookie","") != "")">
+                <set-header name="Cookie" exists-action="override">
+                    <value>@(context.Variables.GetValueOrDefault<string>("backendCookie",""))</value>
+                </set-header>
+            </when>
+            <otherwise>
+                <authentication-basic username="{{MYBACKEND_USER}}" password="{{MYBACKEND_PASSWORD}}" />
+            </otherwise>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <choose>
+            <when condition="@(context.Response.StatusCode > 399)">
+                <cache-remove-value key="BACKEND-COOKIE" />
+            </when>
+            <when condition="@(context.Variables.GetValueOrDefault<string>("backendCookie","") == "")">
+                <cache-store-value key="BACKEND-COOKIE" value="@(context.Response.Headers.GetValueOrDefault("Set-Cookie",""))" duration="3600" />
+            </when>
+        </choose>
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
