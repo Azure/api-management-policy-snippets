@@ -2,10 +2,11 @@
     This policy sample demonstrates the creation of a signed JSON Web Token using HMAC SHA256. As APIM is not an instrument to
     create JWT tokens, there is presently no policy to achieve this. The policy subsequently uses the JWT in the Authorization header.
 
-    A use case may be a different type of authentication such as basic auth (e.g. username/password). Once validated, you 
-    may want to create a JWT token containing the username and any number of claims that may be relevant to your backend.
+    A use case may be that a different type of caller authentication such as basic auth (e.g. username/password) was used. Once 
+    validated, you may want to create a JWT token containing the username and any number of claims that may be relevant to your backend.
+    There may not be a need to involve your IDP for some of these scenarios, hence this policy snippet was created.
     
-    Some references you may find useful.
+    Some references you may find useful:
 
     References:
         To view the JWT format and verify a token with a secret, use the JWT debugger:
@@ -25,8 +26,8 @@
         {{hashing-secret}} is an APIM Named Value that should ideally be securely sourced from Key Vault in your Named Value configuration.
 -->
 <policies>
-	<inbound>
-		<base />
+    <inbound>
+        <base />
 
         <!-- Obtain the user_name or any other values to use for claims in this section. We are hard-coding username below for ease of example. -->
 
@@ -52,14 +53,14 @@
                 return $"Bearer {jwtHeaderBase64UrlEncoded}.{jwtPayloadBase64UrlEncoded}.{jwtSignatureBase64UrlEncoded}"; 
             }</value>
         </set-header>
-	</inbound>
-	<backend>
-		<base />
-	</backend>
-	<outbound>
-		<base />
-	</outbound>
-	<on-error>
-		<base />
-	</on-error>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
 </policies>
