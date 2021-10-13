@@ -1,7 +1,11 @@
 <policies>
     <inbound>
         <base />
-        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="jwt validation failed" />
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="jwt validation failed">
+            <issuer-signing-keys>
+                <key>{{base64-encoded-hashing-secret}}</key>
+            </issuer-signing-keys>
+        </validate-jwt>
     </inbound>
     <backend>
         <base />
