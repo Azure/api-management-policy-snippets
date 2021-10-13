@@ -9,8 +9,9 @@
     Some references you may find useful:
 
     References:
-        To view the JWT format and verify a token with a secret, use the JWT debugger:
-            https://jwt.io 
+        To view the JWT RFC and verify a token with a secret:
+            https://datatracker.ietf.org/doc/html/rfc7519
+            https://jwt.io
         
         To quickly base64 encode/decode:
             https://www.base64decode.org
