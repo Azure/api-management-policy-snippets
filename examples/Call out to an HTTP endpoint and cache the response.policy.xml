@@ -9,7 +9,7 @@
   <inbound>
     <base />
     <!-- Check if lat/long has already been cached for this place and fetch it into a variable. -->
-    <cache-lookup-value key="@(context.Request.MatchedParameters.GetValueOrDefault("place="""))" variable-name="latlong"/>
+    <cache-lookup-value key="@(context.Request.MatchedParameters.GetValueOrDefault("place", ""))" variable-name="latlong"/>
 
     <!-- If no lat/long found, use external API to get lat/long of the place and cache it. -->
     <choose>
