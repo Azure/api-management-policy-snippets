@@ -1,0 +1,33 @@
+<policies>
+    <inbound>
+        <base />
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="jwt validation failed">
+            <issuer-signing-keys>
+                <key>{{base64-encoded-hashing-secret}}</key>
+            </issuer-signing-keys>
+        </validate-jwt>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <choose>
+            <!--When on-error is defined, its error handling overrides validate-jwt's error message. Its failed-validation-error-message will
+            never become effective. In order to provide specific error handling, we can specifically reference the validate-jwt elements (via Source),
+            then handle the error here along with any other error-handling.-->
+            <when condition="@(context.LastError.Source == "validate-jwt")">
+                <return-response>
+                    <set-status code="@(context.Response.StatusCode" />
+                    <set-body>Unauthorized. Access token is missing or invalid.</set-body>
+                </return-response>
+            </when>
+        </choose>
+        <base />
+    </on-error>
+</policies>
+
+
+

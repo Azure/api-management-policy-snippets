@@ -1,0 +1,67 @@
+<!--
+    This policy sample demonstrates the creation of a signed JSON Web Token using HMAC SHA256. As APIM is not an instrument to
+    create JWT tokens, there is presently no policy to achieve this. The policy subsequently uses the JWT in the Authorization header.
+
+    A use case may be that a different type of caller authentication such as basic auth (e.g. username/password) was used. Once 
+    validated, you may want to create a JWT token containing the username and any number of claims that may be relevant to your backend.
+    There may not be a need to involve your IDP for some of these scenarios, hence this policy snippet was created.
+    
+    Some references you may find useful:
+
+    References:
+        To view the JWT RFC and verify a token with a secret:
+            https://datatracker.ietf.org/doc/html/rfc7519
+            https://jwt.io
+        
+        To quickly base64 encode/decode:
+            https://www.base64decode.org
+            https://www.base64encode.org
+
+        To understand the difference between Base64 and Base64Url encoding and why it matters:
+            https://base64.guru/standards/base64url
+
+        To verify the timestamp after you decode it with the JWT decoder:
+            https://www.epochconverter.com
+
+    IMPORTANT:
+        {{hashing-secret}} is an APIM Named Value that should ideally be securely sourced from Key Vault in your Named Value configuration.
+-->
+<policies>
+    <inbound>
+        <base />
+
+        <!-- Obtain the user_name or any other values to use for claims in this section. We are hard-coding username below for ease of example. -->
+
+        <set-header name="Authorization" exists-action="override">
+            <value>@{
+                // 1) Construct the Base64Url-encoded header
+                var header = new { typ = "JWT", alg = "HS256" };
+                var jwtHeaderBase64UrlEncoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(header))).Replace("/", "_").Replace("+", "-"). Replace("=", "");
+                // As the header is a constant, you may use this equivalent Base64Url-encoded string instead to save the repetitive computation above.
+                // var jwtHeaderBase64UrlEncoded = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9";
+
+                // 2) Construct the Base64Url-encoded payload 
+                var exp = new DateTimeOffset(DateTime.Now.AddMinutes(10)).ToUnixTimeSeconds();  // sets the expiration of the token to be 10 minutes from now
+                var username = "john_doe";
+                var payload = new { exp, username };
+                var jwtPayloadBase64UrlEncoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(payload))).Replace("/", "_").Replace("+", "-"). Replace("=", "");
+
+                // 3) Construct the Base64Url-encoded signature                
+                var signature = new HMACSHA256(Encoding.UTF8.GetBytes({{hashing-secret}})).ComputeHash(Encoding.UTF8.GetBytes($"{jwtHeaderBase64UrlEncoded}.{jwtPayloadBase64UrlEncoded}"));
+                var jwtSignatureBase64UrlEncoded = Convert.ToBase64String(signature).Replace("/", "_").Replace("+", "-"). Replace("=", "");
+
+                // 4) Return the HMAC SHA256-signed JWT as the value for the Authorization header
+                return $"Bearer {jwtHeaderBase64UrlEncoded}.{jwtPayloadBase64UrlEncoded}.{jwtSignatureBase64UrlEncoded}"; 
+            }</value>
+        </set-header>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
