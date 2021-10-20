@@ -1,0 +1,25 @@
+<!--
+    This policy sample demonstrates the listing of all inbound HTTP headers, which can be a bit more straight-forward than setting up a trace. 
+-->
+<policies>
+    <inbound>
+        <base />
+        <return-response>
+            <set-status code="200" reason="OK" />
+            <set-body template="liquid">
+                {% for header in context.Request.Headers %}
+                    {{- header.Key }}: {{ header.Value }}
+                {% endfor %}
+            </set-body>
+        </return-response>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
