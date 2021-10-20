@@ -5,13 +5,13 @@
     <inbound>
         <base />
         <return-response>
-			<set-status code="200" reason="OK" />
-			<set-body template="liquid">
+            <set-status code="200" reason="OK" />
+            <set-body template="liquid">
                 {% for header in context.Request.Headers %}
                     {{- header.Key }}: {{ header.Value }}
                 {% endfor %}
             </set-body>
-		</return-response>
+        </return-response>
     </inbound>
     <backend>
         <base />
