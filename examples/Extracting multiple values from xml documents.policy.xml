@@ -62,11 +62,9 @@
 
         <set-body template="liquid">
             {% assign vars = context.Variables["jsonResponse"] %}
-
             <message3>
                 <data val1="{{ vars['value1'] }}" val3="{{ vars['value3'] }}" />
             </message3>
-
         </set-body>
 
     </inbound>
