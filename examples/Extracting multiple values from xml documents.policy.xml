@@ -37,7 +37,7 @@
 
             return obj;
 
-            }" />
+        }" />
         <!-- The jsonResponse variable now contains an object that looks like this...
 
                 {
