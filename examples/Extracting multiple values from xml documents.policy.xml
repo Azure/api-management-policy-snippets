@@ -2,7 +2,7 @@
 <!-- If you wanted to assign each of the values from a document to a variable you need to parse the document multiple times which is inefficient.
      The alternative is to parse the document once and extract the values into a json object variable.  The individual json properties can then be used in both policy expressions and liquid templates.   
 -->
-<!-- The following example assumes a send request call is made in the inbound policy that returns an xml document into a variable.
+<!-- The following example assumes a send request call is made in the inbound policy that returns an xml document into a variable. -->
 
 <policies>
     <inbound>
