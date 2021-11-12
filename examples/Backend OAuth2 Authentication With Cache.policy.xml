@@ -1,6 +1,6 @@
 <!-- The policy defined in this file provides an example of using OAuth2 for authorization between the gateway and a backend -->
 <!-- It shows how to obtain an access token from AAD, cache it for a configurable amount of time and forward it to the backend. -->
-<!-- The sample is based on the original OAuth2 example provided previously
+<!-- The sample is based on the original OAuth2 example provided previously -->
 
 <!-- Send request to AAD to obtain a bearer token -->
 <!-- Parameters: authorizationServer - format https://login.windows.net/TENANT-GUID/oauth2/token -->
