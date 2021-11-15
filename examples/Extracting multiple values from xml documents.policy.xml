@@ -59,13 +59,19 @@
         </choose>
 
         <!-- Or in liquid transformations like this.. -->
-
-        <set-body template="liquid">
-            {% assign vars = context.Variables["jsonResponse"] %}
-            <message3>
-                <data val1="{{ vars['value1'] }}" val3="{{ vars['value3'] }}" />
-            </message3>
-        </set-body>
+        
+        <return-response>
+            <set-status code="200" reason="" />
+            <set-header name="Content-Type" exists-action="override">
+                <value>text/xml</value>
+            </set-header>
+            <set-body template="liquid">
+                {%- assign vars = context.Variables["jsonResponse"] -%}
+                <message3>
+                    <data val1="{{ vars['value1'] }}" val3="{{ vars['value3'] }}" />
+                </message3>
+            </set-body>
+        </return-response>
 
     </inbound>
     <backend>
