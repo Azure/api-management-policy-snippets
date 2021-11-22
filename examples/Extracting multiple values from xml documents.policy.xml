@@ -1,0 +1,86 @@
+<!-- The policy defined in this file demonstrates how to work with multiple extract values from an xml document. -->
+<!-- If you wanted to assign each of the values from a document to a variable you need to parse the document multiple times which is inefficient.
+     The alternative is to parse the document once and extract the values into a json object variable.  The individual json properties can then be used in both policy expressions and liquid templates.   
+-->
+<!-- The following example assumes a send request call is made in the inbound policy that returns an xml document into a variable. -->
+
+<policies>
+    <inbound>
+        <base />
+        <!-- Make a request to an additional api that will return the following xml response 
+        
+        <message1>
+            <conditionValue>true</conditionValue>
+            <value1>MESSAGE1_TEST1</value1>
+            <value2>MESSAGE1_TEST2</value2>
+            <value3>MESSAGE1_TEST3</value3>
+        </message1>
+        
+        -->
+        <send-request mode="new" response-variable-name="sendRequestResponse">
+            <set-url>{{my-send-request}}</set-url>
+            <set-method>GET</set-method>
+            <set-header name="Content-Type" exists-action="override">
+                <value>text/xml</value>
+            </set-header>
+        </send-request>
+
+        <!-- extract specific values from the sendRequestResponse variable into a Json Object -->
+        <set-variable name="jsonResponse" value="@{
+
+            var doc = XDocument.Parse(((IResponse)context.Variables["sendRequestResponse"]).Body.As<string>());
+
+            var obj = new JObject();
+            obj["conditionValue"] = doc.Descendants().Where(r=>r.Name.LocalName == "conditionValue").First().Value;
+            obj["value1"] = doc.Descendants().Where(r=>r.Name.LocalName == "value1").First().Value;
+            obj["value3"] = doc.Descendants().Where(r=>r.Name.LocalName == "value3").First().Value;
+
+            return obj;
+
+        }" />
+        <!-- The jsonResponse variable now contains an object that looks like this...
+
+                {
+                    "conditionValue": "true",
+                    "value1": "MESSAGE1_TEST1",
+                    "value3": "MESSAGE1_TEST3"
+                } 
+
+            Individual properties can then be referenced in expressions like this..  
+        -->
+
+        <choose>
+            <when condition="@((bool)((JObject)context.Variables["jsonResponse"])["conditionValue"])">
+                <!-- Do something when condition is met -->
+                <trace source="My API" severity="verbose">
+                    <message>Condition was met</message>
+                </trace>
+            </when>
+        </choose>
+
+        <!-- Or in liquid transformations like this.. -->
+        
+        <return-response>
+            <set-status code="200" reason="" />
+            <set-header name="Content-Type" exists-action="override">
+                <value>text/xml</value>
+            </set-header>
+            <set-body template="liquid">
+                {%- assign vars = context.Variables["jsonResponse"] -%}
+                <message3>
+                    <data val1="{{ vars['value1'] }}" val3="{{ vars['value3'] }}" />
+                </message3>
+            </set-body>
+        </return-response>
+
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
