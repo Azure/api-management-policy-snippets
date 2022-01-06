@@ -1,0 +1,21 @@
+<!-- REF: https://github.com/Gordonby/ApimTrafficSplitting -->
+<!-- This policy overrides the backend baseurl to facilitate traffic splitting  -->
+<!-- Traffic weight percentage and Backend URL to override with is stored in APIM named values -->
+<policies>
+    <inbound>
+        <choose>
+            <when condition="@(new System.Random().Next(1,100) &lt;= {{MyTrafficSplitApp_TrafficSplitWeight}})">
+                <set-backend-service base-url="{{MyTrafficSplitApp_TrafficBaseUrlOverride}}" />
+            </when>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
