@@ -6,7 +6,7 @@
 <!-- In addition to that it caches the tokens, so that clients can focus on app logic rather than SAP Principal Propagation and to scale the approach. -->
 <!-- Furthermore it handles the X-CSRF-Token handling for update requests. -->
 <!-- Find further details in our blog series on the SAP community: https://blogs.sap.com/2021/08/12/.net-speaks-odata-too-how-to-implement-azure-app-service-with-sap-odata-gateway/ -->
-<!-- Find a Postman collection to test the policy flow here: https://github.com/MartinPankraz/AzureSAPODataReader/blob/master/Templates/AAD%20APIM%20SAP%20Principal%20Propagation.postman_collection.json -->
+<!-- Find a Postman collection to test the policy flow here: https://github.com/MartinPankraz/AzureSAPODataReader/blob/master/Templates/AAD_APIM_SAP_Principal_Propagation.postman_collection.json -->
 <!-- Parameters: AADTenantId - format TENANT-GUID, can be optained from Azure portal view for Azure AD for instance -->
 <!-- Parameters: AADRegisteredAppClientId - format APP-GUID, obtained during app registration -->
 <!-- Parameters: AADRegisteredAppClientSecret - a URL encoded secret, obtained during app registration -->
