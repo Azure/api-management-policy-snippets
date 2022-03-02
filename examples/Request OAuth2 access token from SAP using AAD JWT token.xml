@@ -34,11 +34,11 @@
         <set-variable name="SAPOAuthClientID" value="{{SAPOAuthClientID}}" />
         <set-variable name="SAPOAuthClientSecret" value="{{SAPOAuthClientSecret}}" />
         <set-variable name="SAPOAuthScope" value="{{SAPOAuthScope}}" />
-        <!-- check APIM cache for existing user SAP token for OData service -->
+        <!-- check APIM cache for existing user SAP token for OData service and store in the SAPBearerToken Variable -->
         <cache-lookup-value key="@("SAPPrincipal" + context.Request.Headers.GetValueOrDefault("Authorization","").AsJwt()?.Subject)" variable-name="SAPBearerToken" />
         <choose>
             <when condition="@(!context.Variables.ContainsKey("SAPBearerToken"))">
-                <!-- Exchange AAD Bearer token for AAD issued SAML token on behalf of logged in user -->
+                <!-- If it wasn't in the cache, then exchange the provided AAD Bearer token for AAD issued SAML token on behalf of logged in user -->
                 <send-request mode="new" response-variable-name="fetchSAMLAssertion" timeout="10" ignore-error="false">
                     <set-url>https://login.microsoftonline.com/{{AADTenantId}}/oauth2/v2.0/token</set-url>
                     <set-method>POST</set-method>
@@ -82,12 +82,12 @@
                 <set-variable name="SAPResponseObject" value="@(((IResponse)context.Variables["fetchSAPBearer"]).Body.As<JObject>())" />
                 <set-variable name="SAPBearerTokenExpiry" value="@(((JObject)context.Variables["SAPResponseObject"])["expires_in"].ToString())" />
                 <set-variable name="SAPBearerToken" value="@(((JObject)context.Variables["SAPResponseObject"])["access_token"].ToString())" />
-                <!--cache Bearer till expiry-->
+                <!-- cache Bearer till expiry-->
                 <cache-store-value key="@("SAPPrincipal" + context.Request.Headers.GetValueOrDefault("Authorization","").AsJwt()?.Subject)" value="@((string)context.Variables["SAPBearerToken"])" duration="@(int.Parse((string)context.Variables["SAPBearerTokenExpiry"]))" />
             </when>
         </choose>
         <choose>
-            <!-- CSRF-token only required for every operation other than GET or HEAD -->
+            <!-- CSRF-token is required for every operation other than GET or HEAD -->
             <when condition="@(context.Request.Method != "GET" && context.Request.Method != "HEAD")">
                 <!-- Creating a HEAD subrequest to save request overhead and get the SAP CSRF token and cookie.-->
                 <send-request mode="new" response-variable-name="SAPCSRFToken" timeout="10" ignore-error="false">
@@ -102,16 +102,17 @@
                     <!--  Don't expose APIM subscription key to the backend. -->
                     <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
                 </send-request>
-                <!-- Extract the token and cookie from the "SAPCSRFToken" and set as header in the POST request. -->
+                <!-- Extract the token and cookie from the "SAPCSRFToken" and set as a header in the onward POST request. -->
                 <set-header name="X-CSRF-Token" exists-action="skip">
                     <value>@(((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("x-csrf-token"))</value>
                 </set-header>
                 <set-header name="Cookie" exists-action="skip">
                     <value>@{
-						string rawcookie = ((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("Set-Cookie");
-						string[] cookies = rawcookie.Split(';');
-						string xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("sap-XSRF"));
-						return xsrftoken.Split(',')[1];}</value>
+			string rawcookie = ((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("Set-Cookie");
+			string[] cookies = rawcookie.Split(';');
+			string xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("sap-XSRF"));
+			return xsrftoken.Split(',')[1];}
+		    </value>
                 </set-header>
             </when>
         </choose>
@@ -121,7 +122,7 @@
         <!--  Don't expose APIM subscription key to the backend. -->
         <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
         <choose>
-            <!-- introduce json format conversion only for non metadata calls. Otherwise bad request. -->
+            <!-- Force return in json format, only for non metadata endpoint calls. -->
             <when condition="@(context.Operation.Name != "$metadata")">
                 <set-query-parameter name="$format" exists-action="override">
                     <value>json</value>
