@@ -1,0 +1,90 @@
+        <!-- This policy fragment is designed to check the caller's source address comes from inside the AFD Service Tag Range and has a valid AFD-ID header as well as a valid JWT. 
+        It requires a managed identity that has the correct RBAC permissions to call into the service tags api (i.e. has read rights on a subscription)
+        It also needs some named values to be congfigured for it to work.
+        If you wish to use this in the consumption tier (where it makes most sense as you cannot use a service tag to filter this) 
+        you will need to use BYO cache for performance and to avoid throttling on the ARM service tag API. 
+          1. nvfdid - The Front Door ID to check the inbound X-Azure-FDID header for.
+          2. nvoidc - The openid connect URL to use to download the OIDC config for if you want to validate a JWT.
+          3. nvjwtaud - The audience claim to expect in the JWT for the backend.
+          4. nvazsid - A valid Azure subscription ID that the managed identity can read, used in your Service Tag API Call.
+        -->
+        <check-header name="X-Azure-FDID" failed-check-httpcode="401" failed-check-error-message="Not Authorized - route via FrontDoor" ignore-case="true">
+            <value>{{nvfdid}}</value>
+        </check-header>
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" failed-validation-error-message="No token provided or token is invalid." require-expiration-time="true" require-signed-tokens="true" clock-skew="300">
+            <openid-config url="{{nvoidc}}" />
+            <audiences>
+                <audience>{{nvjwtaud}}</audience>
+            </audiences>
+        </validate-jwt>
+        <set-header name="Authorization" exists-action="delete" />
+        <cache-lookup-value key="cacheresponse1" variable-name="cacheresponse1" />
+        <choose>
+            <when condition="@(!context.Variables.ContainsKey("cacheresponse1"))">
+                <!-- If the arm context variable doesn’t exist, make an HTTP request to retrieve it.  -->
+                <send-request mode="new" timeout="20" ignore-error="false" response-variable-name="cacheresponse1">
+                    <set-url>https://management.azure.com/subscriptions/{{nvazsid}}/providers/Microsoft.Network/locations/eastus/serviceTags?api-version=2021-03-01</set-url>
+                    <set-method>GET</set-method>
+                    <authentication-managed-identity resource="https://management.azure.com" />
+                </send-request>
+                <set-variable name="cacheresponse1" value="@{
+                    JArray rootvalues = (JArray)((IResponse)context.Variables["cacheresponse1"]).Body.As<JObject>()["values"];
+                    return Newtonsoft.Json.JsonConvert.SerializeObject(rootvalues.Children().Where(e => (string)e["id"] == "AzureFrontDoor.Backend").FirstOrDefault()["properties"]["addressPrefixes"].Select(c => (string)c).ToList());    
+                }" />
+            </when>
+        </choose>
+        <choose>
+            <when condition="@{       
+
+                    int HostToNetworkOrder(int host)
+                    {
+                        return (((int)HostToNetworkOrderShort((short)host) & 0xFFFF) << 16) | ((int)HostToNetworkOrderShort((short)(host >> 16)) & 0xFFFF);
+                    }
+                    short HostToNetworkOrderShort(short host)
+                    {
+                        return (short)((((int)host & 0xFF) << 8) | (int)((host >> 8) & 0xFF));
+                    }
+
+                    List<string> cidrList = Newtonsoft.Json.JsonConvert.DeserializeObject<List<string>>((string)context.Variables["cacheresponse1"]);
+
+                    string ipAddress = context.Request.IpAddress;
+                    string[] tokens = ipAddress.Split(':'); 
+                    if(tokens.Length == 2) {ipAddress = tokens[0];} 
+
+                    foreach (string cidrAddress in cidrList)
+                    {
+                        string[] cidrParts = cidrAddress.Split('/');
+                        string[] inputIPParts = ipAddress.Split('.');
+                        string[] cidrIPArray = cidrParts[0].Split('.');
+
+                        if (inputIPParts.Length == 4 && cidrIPArray.Length == 4)
+                        {
+                            byte[] inputIPBytes = new byte[] {Convert.ToByte(int.Parse(inputIPParts[0])), Convert.ToByte(int.Parse(inputIPParts[1])), Convert.ToByte(int.Parse(inputIPParts[2])), Convert.ToByte(int.Parse(inputIPParts[3]))};
+                            byte[] cidrIPBytes = new byte[] {Convert.ToByte(int.Parse(cidrIPArray[0])), Convert.ToByte(int.Parse(cidrIPArray[1])), Convert.ToByte(int.Parse(cidrIPArray[2])), Convert.ToByte(int.Parse(cidrIPArray[3]))};
+                    
+                            int cidrAddr = BitConverter.ToInt32(inputIPBytes,0);
+                            int ipAddr = BitConverter.ToInt32(cidrIPBytes,0);
+                            
+                            var host = int.Parse(cidrParts[1]);
+                            host = -1 << (32-host);
+                            var mask = HostToNetworkOrder(host);
+                            
+                            if (((ipAddr & mask) == (cidrAddr & mask)))
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                    return false; 
+            }" />
+            <otherwise>
+                <return-response>
+                    <set-status code="401" reason="Not Authorized, please use the front door." />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>text/plain</value>
+                    </set-header>
+                    <set-body>Not Authorized, please use the front door.</set-body>
+                </return-response>
+            </otherwise>
+        </choose>
+        <cache-store-value key="cacheresponse1" value="@((string)context.Variables["cacheresponse1"])" duration="86400" />
