@@ -1,7 +1,7 @@
 <!-- The policy defined in this file demonstrates how to filter data elements from the response payload based on the product associated with the request.
 <!-- The snippet assumes that response content is formatted as JSON and contains root-level properties named "current", "minutely", "hourly", "daily", "alerts". -->
 
-<!-- For example, use https://openweathermap.org/api/one-call-api/ API to test this policy. -->
+<!-- The example backend response includes root-level properties similar to the https://openweathermap.org/api/one-call-api/ API. -->
 
 <!-- Copy this snippet into the outbound section. -->
 
