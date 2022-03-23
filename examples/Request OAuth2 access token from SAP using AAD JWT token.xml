@@ -120,8 +120,6 @@
                                 return "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_SAPOAuthClientID}:{_SAPOAuthClientSecret}"));
                             }</value>
                     </set-header>
-                    <!--  Don't expose APIM subscription key to the backend. -->
-                    <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
                     <set-body>@{
                             var _SAPOAuthClientID = context.Variables["SAPOAuthClientID"];
                             var _SAPOAuthScope = context.Variables["SAPOAuthScope"];
@@ -161,26 +159,28 @@
                     <set-header name="Authorization" exists-action="override">
                         <value>@("Bearer " + (string)context.Variables["SAPBearerToken"])</value>
                     </set-header>
-                    <!--  Don't expose APIM subscription key to the backend. -->
-                    <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
                 </send-request>
                 <!-- Extract the token and cookie from the "SAPCSRFToken" and set as header in the POST request. -->
-                <set-header name="X-CSRF-Token" exists-action="override">
-                    <value>@(((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("x-csrf-token"))</value>
-                </set-header>
-                <set-header name="Cookie" exists-action="override">
-                    <value>@{
-						string rawcookie = ((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("Set-Cookie");
-						string[] cookies = rawcookie.Split(';');
-                        /* new session sends a XSRF cookie */
-						string xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("sap-XSRF"));
-                        /* existing sessions sends a SessionID. No other cases anticipated at this point. Please create a GitHub Pull-Request if you encounter uncovered settings. */
-                        if(xsrftoken == null){
-                            xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("SAP_SESSIONID"));
-                        }
-                        
-						return xsrftoken.Split(',')[1];}</value>
-                </set-header>
+                <choose>
+                    <when condition="@(((IResponse)context.Variables["SAPCSRFToken"]).StatusCode == 200)">
+                        <set-header name="X-CSRF-Token" exists-action="override">
+                            <value>@(((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("x-csrf-token"))</value>
+                        </set-header>
+                        <set-header name="Cookie" exists-action="override">
+                            <value>@{
+                                string rawcookie = ((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("Set-Cookie");
+                                string[] cookies = rawcookie.Split(';');
+                                /* new session sends a XSRF cookie */
+                                string xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("sap-XSRF"));
+                                /* existing sessions sends a SessionID. No other cases anticipated at this point. Please create a GitHub Pull-Request if you encounter uncovered settings. */
+                                if(xsrftoken == null){
+                                    xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("SAP_SESSIONID"));
+                                }
+                                
+                                return xsrftoken.Split(',')[1];}</value>
+                        </set-header>
+                    </when>
+                </choose>
             </when>
         </choose>
         <set-header name="Authorization" exists-action="override">
