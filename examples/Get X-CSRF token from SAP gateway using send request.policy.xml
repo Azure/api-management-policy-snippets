@@ -1,45 +1,49 @@
 <!-- The policy defined in this file shows how to implement X-CSRF pattern used by many APIs. The example is specific to SAP Gateway.  -->
 
 <!--	Detailed description of the scenario and solution can be found on: -->
-<!--      http://blog.ibiz-solutions.se/uncategorized/exposing-sap-gateway-services-with-api-management/. -->
-
-<!-- Copy the following snippet into the inbound section. -->
+<!--      https://github.com/MartinPankraz/AzureSAPODataReader. -->
 
 <policies>
   <inbound>
     <base/>
-    <!-- Set the URL to the service. -->
-    <rewrite-uri template="sap/opu/odata/sap/ZCAV_AZURE_CS_ORDER_SRV/ItHeaderSet('{oid}')" />
-
-    <!-- Creating a subrequest "fetchtokenresponse" and set it as GET request to get the token and cookie.-->
-    <send-request mode="new" response-variable-name="fetchtokenresponse" timeout="10" ignore-error="false">
-      <set-url>@(context.Request.Url.ToString())</set-url>
-      <set-method>GET</set-method>
-      <set-header name="X-CSRF-Token" exists-action="override">
-        <value>Fetch</value>
-      </set-header>
-      <set-header name="Authorization" exists-action="override">
-        <value>{{http-basic-auth-header-value}}</value>
-      </set-header>
-      <set-body>
-      </set-body>
-    </send-request>
-
-    <!-- Extract the token from the "fetchtokenresponse" and set as header in the POST request. -->
-    <set-header name="X-CSRF-Token" exists-action="skip">
-      <value>@(((IResponse)context.Variables["fetchtokenresponse"]).Headers.GetValueOrDefault("x-csrf-token"))</value>
-    </set-header>
-
-    <!-- Extract the Cookie from the "fetchtokenresponse" and set as header in the POST request. -->
-    <set-header name="Cookie" exists-action="skip">
-      <value>
-        @{
-        string rawcookie = ((IResponse)context.Variables["fetchtokenresponse"]).Headers.GetValueOrDefault("Set-Cookie");
-        string[] cookies = rawcookie.Split(';');
-        string xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("sap-XSRF"));
-        return xsrftoken.Split(',')[1];}
-      </value>
-    </set-header>
+    <choose>
+      <!-- CSRF-token only required for every operation other than GET or HEAD -->
+      <when condition="@(context.Request.Method != "GET" && context.Request.Method != "HEAD")">
+          <!-- Creating a HEAD subrequest to save request overhead and get the SAP CSRF token and cookie.-->
+          <send-request mode="new" response-variable-name="SAPCSRFToken" timeout="10" ignore-error="false">
+              <set-url>@(context.Request.Url.ToString())</set-url>
+              <set-method>HEAD</set-method>
+              <set-header name="X-CSRF-Token" exists-action="override">
+                  <value>Fetch</value>
+              </set-header>
+              <set-header name="Authorization" exists-action="override">
+                  <!-- forward authorization for csrf token fetch -->
+                  <value>@(context.Request.Headers.GetValueOrDefault("Authorization"))</value>
+              </set-header>
+          </send-request>
+          <!-- Extract the token and cookie from the "SAPCSRFToken" and set as header in the POST request. -->
+          <choose>
+            <when condition="@(((IResponse)context.Variables["SAPCSRFToken"]).StatusCode == 200)">
+              <set-header name="X-CSRF-Token" exists-action="override">
+                  <value>@(((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("x-csrf-token"))</value>
+              </set-header>
+              <set-header name="Cookie" exists-action="override">
+                  <value>@{
+                    string rawcookie = ((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("Set-Cookie");
+                    string[] cookies = rawcookie.Split(';');
+                                /* new session sends a XSRF cookie */
+                    string xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("sap-XSRF"));
+                                /* existing sessions sends a SessionID. No other cases anticipated at this point. Please create a GitHub Pull-Request if you encounter uncovered settings. */
+                                if(xsrftoken == null){
+                                    xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("SAP_SESSIONID"));
+                                }
+                                
+                    return xsrftoken.Split(',')[1];}</value>
+              </set-header>
+            </when>
+          </choose>
+      </when>
+    </choose>
   </inbound>
   <backend>
     <base/>
@@ -51,5 +55,3 @@
     <base/>
   </on-error>
 </policies>
-
-
