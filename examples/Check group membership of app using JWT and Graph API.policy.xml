@@ -1,0 +1,106 @@
+<!--
+    This policy will acquire and use the access token of the APIM managed identity to call the Graph API
+    and check if the application idenitfied in the incoming JWT is a member of a particular AAD Group.
+
+    Caching is also used to reduce the number of queries made to the Graph API, such that an application's
+    membership in the specified group is re-checked once every 24 hours. If an application is NOT a member
+    of the AAD group, no caching happens, and this applicaiton will be checked on each call.
+
+    Note: This is NOT to be used to check a user's group membership, as the permissions required for the managed identity are different.
+
+    To use this policy:
+    - Ensure that your APIM is configured to use a system assigned or user assigned managed identity
+    - Grant that managed identity the Application.Read.All permissions using the Powershell script in the below comment block
+    - Find the object ID in AAD of the group that you require the applicaiton's SPN to be a member of
+    - Change the value for the groupId variable in the appropriate set-variable snippet below
+    - Assign the application's SPN to this group in AAD
+-->
+<!-- Powershell script to assign Application.Read.All permissions to the API Managment Managed Identity, based on script from https://techcommunity.microsoft.com/t5/integrations-on-azure-blog/grant-graph-api-permission-to-managed-identity-object/ba-p/2792127
+
+# This requires the AzureAD module, and the user executing the AD cmdlets to have the required permissions
+# If you do not have the AzureAD module installed already, uncomment the line below and execute
+#Install-Module AzureAD
+
+# Supply your tenant ID and the display name of the APIM managed identity
+$TenantID="provide the tenant ID"
+$DisplayNameOfMSI="Provide the APIM name"
+$GraphAppId = "00000003-0000-0000-c000-000000000000"
+$PermissionName = "Application.Read.All"
+
+Connect-AzureAD -TenantId $TenantID
+$MSI = (Get-AzureADServicePrincipal -Filter "displayName eq '$DisplayNameOfMSI'")
+Start-Sleep -Seconds 10
+$GraphServicePrincipal = Get-AzureADServicePrincipal -Filter "appId eq '$GraphAppId'"
+$AppRole = $GraphServicePrincipal.AppRoles | Where-Object {$_.Value -eq $PermissionName -and $_.AllowedMemberTypes -contains "Application"}
+New-AzureAdServiceAppRoleAssignment -ObjectId $MSI.ObjectId -PrincipalId $MSI.ObjectId -ResourceId $GraphServicePrincipal.ObjectId -Id $AppRole.Id
+
+-->
+<policies>
+    <inbound>
+        <base />
+        <!-- set the group object ID here -->
+        <set-variable name="groupId" value="3e69dd12-469b-4cb7-a361-888eba3ee52c" />
+        <!-- get access token for managed identity -->
+        <authentication-managed-identity resource="https://graph.microsoft.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+        <!-- get tenant id -->
+        <set-variable name="tenantId" value="@{
+            Jwt jwt;
+            ExpressionSyntaxExtensions.TryParseJwt((string)context.Variables["msi-access-token"], out jwt);
+            return jwt.Claims.GetValueOrDefault("tid", "");
+        }" />
+        <!-- validate the incoming JWT token -->
+        <validate-jwt header-name="Authorization" output-token-variable-name="valid-jwt">
+            <openid-config url="@("https://login.microsoftonline.com/" + context.Variables["tenantId"] + "/.well-known/openid-configuration")" />
+            <audiences>
+                <audience>api://NpTestBackendAPI/</audience>
+            </audiences>
+            <issuers>
+                <issuer>@("https://sts.windows.net/" + context.Variables["tenantId"] + "/")</issuer>
+            </issuers>
+        </validate-jwt>
+        <!-- get app id from validated JWT to use as the caching key -->
+        <set-variable name="appId" value="@{
+            var jwt = (Jwt)context.Variables["valid-jwt"];
+            return jwt.Claims.GetValueOrDefault("appid", "");
+        }" />
+        <!-- Check in cache if this app id has already been checked, otherwise check and then add to cache -->
+        <cache-lookup-value key="@((string)context.Variables["appId"])" variable-name="membershipCached" />
+        <choose>
+            <when condition="@(!context.Variables.ContainsKey("membershipCached"))">
+                <!-- check for membership of the app in a particular AAD group, using the app's object ID from the validated JWT -->
+                <send-request ignore-error="false" timeout="20" response-variable-name="inGroupResult" mode="new">
+                    <set-url>@{
+                        var jwt = (Jwt)context.Variables["valid-jwt"];
+                        return "https://graph.microsoft.com/v1.0/directoryObjects/" + jwt.Claims.GetValueOrDefault("oid", "") + "/checkMemberGroups";
+                    }</set-url>
+                    <set-method>POST</set-method>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-header name="Authorization" exists-action="override">
+                        <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+                    </set-header>
+                    <set-body>@("{'groupIds': ['" + context.Variables["groupId"] + "']}")</set-body>
+                </send-request>
+                <choose>
+                    <when condition="@(((JArray)((IResponse)context.Variables["inGroupResult"]).Body.As<JObject>()["value"]).Count == 0)">
+                        <return-response>
+                            <set-status code="401" reason="Unauthorized, invalid group membership" />
+                        </return-response>
+                    </when>
+                </choose>
+                <!-- Store the app id in cache for 86400 seconds, or 24 hours.  Value does not matter -->
+                <cache-store-value key="@((string)context.Variables["appId"])" value="checked" duration="86400" />
+            </when>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
