@@ -1,10 +1,10 @@
 <!--
     This policy will acquire and use the access token of the APIM managed identity to call the Graph API
-    and check if the application idenitfied in the incoming JWT is a member of a particular AAD Group.
+    and check if the application identified in the incoming JWT is a member of a particular AAD Group.
 
     Caching is also used to reduce the number of queries made to the Graph API, such that an application's
     membership in the specified group is re-checked once every 24 hours. If an application is NOT a member
-    of the AAD group, no caching happens, and this applicaiton will be checked on each call.
+    of the AAD group, no caching happens, and this application will be checked on each call.
 
     Note: This is NOT to be used to check a user's group membership, as the permissions required for the managed identity are different.
 
@@ -14,8 +14,9 @@
     - Find the object ID in AAD of the group that you require the applicaiton's SPN to be a member of
     - Change the value for the groupId variable in the appropriate set-variable snippet below
     - Assign the application's SPN to this group in AAD
+    - Change the validate-jwt to suit your needs for JWT validation
 -->
-<!-- Powershell script to assign Application.Read.All permissions to the API Managment Managed Identity, based on script from https://techcommunity.microsoft.com/t5/integrations-on-azure-blog/grant-graph-api-permission-to-managed-identity-object/ba-p/2792127
+<!-- Powershell script to assign Application.Read.All permissions to the API Management Managed Identity, based on script from https://techcommunity.microsoft.com/t5/integrations-on-azure-blog/grant-graph-api-permission-to-managed-identity-object/ba-p/2792127
 
 # This requires the AzureAD module, and the user executing the AD cmdlets to have the required permissions
 # If you do not have the AzureAD module installed already, uncomment the line below and execute
