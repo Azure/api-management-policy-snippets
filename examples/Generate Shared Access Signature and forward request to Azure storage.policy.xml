@@ -1,5 +1,5 @@
-<!-- The policy defined in this file shows how to generate Shared Access Signature (https://docs.microsoft.com/en-us/azure/storage/storage-dotnet-shared-access-signature-part-1) using expressions. -->
-<!-- The snippet forwards the request to Azure storage with rewrite-uri policy. -->
+<!-- The policy defined in this file shows how to generate Shared Access Signature (https://docs.microsoft.com/en-us/rest/api/storageservices/create-service-sas - Table Storage) using expressions. -->
+<!-- The snippet forwards the request to Azure Table storage with rewrite-uri policy. -->
 
 <!-- Copy the following snippet into the inbound section. -->
 
@@ -7,29 +7,87 @@
     <inbound>
         <base />
         <!-- Initialize context variables with property values. -->
+        <set-variable name="contentType" value="application/json" />
         <set-variable name="accessKey" value="{{storageAccountAccessKey}}" />
         <set-variable name="storageAccount" value="{{storageAccountName}}" />
-        <set-variable name="Content-Type" value="application/json" />
-        <set-variable name="resourcePath" value="TableName()" />
+        <set-variable name="resourcePath" value="{{tableName}}" />
         <set-variable name="x-ms-date" value="@(DateTime.UtcNow.ToString("R"))" />
-
+        <set-variable name="x-ms-version" value="2021-06-08" />
+        <set-variable name="signedPermissions" value="raud" />
+        <set-variable name="signedStart" value="" />
+        <set-variable name="signedExpiry" value="@(DateTime.UtcNow.AddDays(1).ToString("yyyy-MM-ddTHH:mm:ssZ"))" />
+        <set-variable name="canonicalizedResource" value="@{
+            // /table/{storageAccount}/{resourcePath}
+            return string.Format("/table/{0}/{1}",(string)context.Variables["storageAccount"],(string)context.Variables["resourcePath"]);
+            }" />
+        <set-variable name="signedIdentifier" value="" />
+        <set-variable name="signedIP" value="" />
+        <set-variable name="signedProtocol" value="" />
+        <set-variable name="startingPartitionKey" value="" />
+        <set-variable name="startingRowKey" value="" />
+        <set-variable name="endingPartitionKey" value="" />
+        <set-variable name="endingRowKey" value="" />
+        <!-- https://docs.microsoft.com/en-us/rest/api/storageservices/create-service-sas#version-2015-04-05-and-later - Version 2015-04-05 and later
+        StringToSign = signedPermissions + "\n" +  
+               signedStart + "\n" +  
+               signedExpiry + "\n" +  
+               canonicalizedResource + "\n" +  
+               signedIdentifier + "\n" +  
+               signedIP + "\n" +  
+               signedProtocol + "\n" +  
+               signedVersion + "\n" +  
+               startingPartitionKey + "\n"  
+               startingRowKey + "\n"  
+               endingPartitionKey + "\n"  
+               endingRowKey
+        -->
+        <set-variable name="stringToSign" value="@{                
+                return string.Format(
+                "{0}\n{1}\n{2}\n{3}\n{4}\n{5}\n{6}\n{7}\n{8}\n{9}\n{10}\n{11}",
+                (string)context.Variables["signedPermissions"],
+                (string)context.Variables["signedStart"],
+                (string)context.Variables["signedExpiry"],
+                (string)context.Variables["canonicalizedResource"],
+                (string)context.Variables["signedIdentifier"],
+                (string)context.Variables["signedIP"],
+                (string)context.Variables["signedProtocol"],
+                (string)context.Variables["x-ms-version"],
+                (string)context.Variables["startingPartitionKey"],
+                (string)context.Variables["startingRowKey"],
+                (string)context.Variables["endingPartitionKey"],
+                (string)context.Variables["endingRowKey"]);
+            }" />
+        <set-variable name="signature" value="@{
+                // https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/authentication-for-the-azure-storage-services
+                // Hash-based Message Authentication Code (HMAC) using SHA256 hash
+                System.Security.Cryptography.HMACSHA256 hasher = new System.Security.Cryptography.HMACSHA256(Convert.FromBase64String((string)context.Variables["accessKey"]));
+                return Convert.ToBase64String(hasher.ComputeHash(System.Text.Encoding.UTF8.GetBytes((string)context.Variables["stringToSign"])));
+            }" />
+        <set-variable name="sasToken" value="@{
+            return string.Format("?sv={0}&sp={1}&se={2}&tn={3}&sig={4}",
+                (string)context.Variables["x-ms-version"],
+                (string)context.Variables["signedPermissions"],
+                System.Net.WebUtility.HtmlEncode((string)context.Variables["signedExpiry"]),
+                (string)context.Variables["resourcePath"],
+                System.Net.WebUtility.HtmlEncode((string)context.Variables["signature"])
+            );
+        }" />
         <!-- Set required headers. -->
         <set-header name="Content-Type" exists-action="override">
-            <value>@((string)context.Variables["Content-Type"])</value>
+            <value>@((string)context.Variables["contentType"])</value>
         </set-header>
         <set-header name="Accept" exists-action="override">
             <value>application/json;odata=nometadata</value>
         </set-header>
-            <set-header name="Accept-Charset" exists-action="override">
-        <value>UTF-8</value>
+        <set-header name="Accept-Charset" exists-action="override">
+            <value>UTF-8</value>
         </set-header>
-            <set-header name="x-ms-date" exists-action="override">
-        <value>@((string)context.Variables["x-ms-date"])</value>
-            </set-header>
+        <set-header name="x-ms-date" exists-action="override">
+            <value>@((string)context.Variables["x-ms-date"])</value>
+        </set-header>
         <set-header name="x-ms-version" exists-action="override">
-            <value>2015-04-05</value>
+            <value>@((string)context.Variables["x-ms-version"])</value>
         </set-header>
-
         <!-- Beginning with version 2009-09-19, the Table service requires that all REST calls include the DataServiceVersion and MaxDataServiceVersion headers. -->
         <!-- See https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/setting-the-odata-data-service-version-headers for more information. -->
         <set-header name="MaxDataServiceVersion" exists-action="override">
@@ -38,35 +96,9 @@
         <set-header name="DataServiceVersion" exists-action="override">
             <value>1.0;NetFx</value>
         </set-header>
-
-        <set-variable name="CanonicalizedResource" value="@{
-            // /{storageAccount}/{resourcePath}
-            return string.Format("/{0}/{1}",(string)context.Variables["storageAccount"],(string)context.Variables["resourcePath"]);
-            }" />
         
-         <set-variable name="StringToSign" value="@{                // https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/authentication-for-the-azure-storage-services
-                // {VERB}\n\n\n\n\n{Content-Type}\n\n\n\n\n\n\n{Date}\n{CanonicalizedResource}
-                return string.Format(
-                "GET\n\n\n\n\n{0}\n\n\n\n\n\n\n{1}\n{2}\n{3}",
-                (string)context.Variables["Content-Type"],
-                (string)context.Variables["x-ms-date"],
-                (string)context.Variables["x-ms-version"],
-                (string)context.Variables["CanonicalizedResource"]);
-            }" />
-
-        <set-variable name="SharedKey" value="@{
-                // https://docs.microsoft.com/en-us/rest/api/storageservices/fileservices/authentication-for-the-azure-storage-services
-                // Hash-based Message Authentication Code (HMAC) using SHA256 hash
-                System.Security.Cryptography.HMACSHA256 hasher = new System.Security.Cryptography.HMACSHA256(Convert.FromBase64String((string)context.Variables["accessKey"]));
-                return Convert.ToBase64String(hasher.ComputeHash(System.Text.Encoding.UTF8.GetBytes((string)context.Variables["StringToSign"])));
-            }" />
-
-        <set-header name="Authorization" exists-action="override">
-            <value>@(string.Format("SharedKey {0}:{1}", (string)context.Variables["storageAccount"], (string)context.Variables["SharedKey"]))</value>
-        </set-header>
-
         <!-- Add $filter here: -->
-        <rewrite-uri template="/TableName()" />
+        <rewrite-uri template="@{ return string.Format("/{0}{1}", (string)context.Variables["resourcePath"], (string)context.Variables["sasToken"]); }" />
     </inbound>
     <backend>
         <base />
