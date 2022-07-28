@@ -163,6 +163,13 @@
             "<forward-request timeout=\"${1:seconds}\" />"
         ]
     },
+    "include-fragment": {
+        "prefix": "include-fragment",
+        "description": "Insert a policy fragment in a policy definition.",
+        "body": [
+            "<include-fragment fragment-id=\"$1\" />"
+        ]
+    },
     "ip-filter": {
         "prefix": "ip-filter",
         "description": "Allow calls only from specific IP addresses and/or address ranges. Forbid calls from specific IP addresses and/or address ranges. Use in the inbound section at any scope.",
