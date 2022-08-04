@@ -1,5 +1,5 @@
 <!--
-    This policy sample to demonstrate how to check if a blob exists and then return the URL of the blob signed with a 
+    This policy sample demonstrates how to check if a blob exists and then return the URL of the blob signed with a 
     User Delegation SAS token leveraging Managed Identity.
     
     The policy takes care of:
