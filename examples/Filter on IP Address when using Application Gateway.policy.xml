@@ -3,7 +3,8 @@
     is accessed from an Application Gateway.  The Application Gateway will write the original request
     IP to the "X-Forwarded-For" header.  The set-header policy evaluates this IP address against a list of
     IP ranges (if any).  If a match is found, a value is written to the X-Forwarded-For header and the
-    following check-header policy will validate the match.  If no match is found 
+    following check-header policy will validate the match.  If no match is found, the original IP address
+    is retained in the X-Forwarded-For variable.
 -->
 <policies>
 	<inbound>

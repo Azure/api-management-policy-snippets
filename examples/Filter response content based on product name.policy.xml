@@ -1,7 +1,7 @@
 <!-- The policy defined in this file demonstrates how to filter data elements from the response payload based on the product associated with the request.
-<!-- The snippet assumes that response content is formatted as JSON and contains root-level properties named "minutely", "hourly", "daily", "flags". -->
+<!-- The snippet assumes that response content is formatted as JSON and contains root-level properties named "current", "minutely", "hourly", "daily", "alerts". -->
 
-<!-- Use https://darksky.net/dev/ API to test this policy. -->
+<!-- The example backend response includes root-level properties similar to the https://openweathermap.org/api/one-call-api/ API. -->
 
 <!-- Copy this snippet into the outbound section. -->
 
@@ -20,7 +20,7 @@
       	<set-body>
           @{
             var response = context.Response.Body.As<JObject>();
-            foreach (var key in new [] {"minutely", "hourly", "daily", "flags"}) {
+            foreach (var key in new [] {"current", "minutely", "hourly", "daily", "alerts"}) {
             response.Property (key).Remove ();
            }
           return response.ToString();
