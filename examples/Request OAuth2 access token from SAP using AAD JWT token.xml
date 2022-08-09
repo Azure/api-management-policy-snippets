@@ -202,6 +202,17 @@
     </backend>
     <outbound>
         <base />
+        <!-- OPTIONAL: Ensure that APIM domain, port and path are reflected on the OData response from SAP
+             Otherwise deferred items like /toSalesOrders are represented by SAP known host and port. Example:
+             https://10.10.10.10:44300/sap/opu/odata/iwbep/gwsample_basic/BusinessPartnerSet('0100000000')/ToSalesOrders vs.
+             https://demo-sap-apim.azure-api.net:443/my-prefix/sap/opu/odata/iwbep/gwsample_basic/BusinessPartnerSet('0100000000')/ToSalesOrders
+        -->
+        <choose>
+            <!-- URL rewrite in body only required for GET -->
+            <when condition="@(context.Request.Method == "GET")">
+                <find-and-replace from="@(context.Api.ServiceUrl.Host +":"+ context.Api.ServiceUrl.Port)" to="@(context.Request.OriginalUrl.Host + ":" + context.Request.OriginalUrl.Port + context.Api.Path)" />
+            </when>
+        </choose>
     </outbound>
     <on-error>
         <base />
