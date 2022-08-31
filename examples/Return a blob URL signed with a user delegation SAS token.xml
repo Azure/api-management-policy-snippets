@@ -1,0 +1,149 @@
+<!--
+    This policy sample demonstrates how to check if a blob exists and then return the URL of the blob signed with a 
+    User Delegation SAS token leveraging Managed Identity.
+    
+    The policy takes care of:
+    - Checking if the blob exists 
+    - Obtaining the User Delegation Key 
+    - Generating the URL of the blob with a SAS token
+    
+    Usage:    
+    - Grant the Storage Blob Data Reader role for the APIM instance at the Storage Account level
+        - You can also grant Storage Blob Delegator role at the Storage Account level, and Storage Blob Data Reader at the container/blob level
+    - The storage account name will be provided as a path parameter with name 'storageAccountName'
+    - The container name will be provided as a path parameter with name containerName
+    - The blob name will be provided as a path parameter with name blobName
+    - The SAS TTL in seconds will be provided as a path parameter with name ttlInSeconds
+       - Example of the URL: https://the-name-of-your-apim-instance.azure-api.net/someapi/getbloburi/{storageAccountName}/{containerName}/{blobName}/{ttlInSeconds}
+
+    The policy will return:
+    - 200-OK with the URL of the blob signed with a User Delegation SAS token
+    - 404-NotFound if the Blob does not exist
+    - 403-Forbidden if the APIM instance does not have permission to read the blob or to get the User Delegation key
+-->
+<policies>
+    <inbound>
+        <set-variable name="blobUri" value="@("https://" + ((string)context.Request.MatchedParameters["storageAccountName"]) + ".blob.core.windows.net/" + ((string)context.Request.MatchedParameters["containerName"]) + "/" + ((string)context.Request.MatchedParameters["blobName"]))" />
+        <base />
+        <!--Check if blob exists-->
+        <send-request mode="new" timeout="20" response-variable-name="blobdata" ignore-error="true">
+            <set-url>@((string)context.Variables["blobUri"])</set-url>
+            <set-method>GET</set-method>
+            <set-header name="x-ms-version" exists-action="override">
+                <value>2020-12-06</value>
+            </set-header>
+            <authentication-managed-identity resource="https://storage.azure.com" />
+        </send-request>
+        <choose>
+            <when condition="@(((IResponse)context.Variables["blobdata"]).StatusCode == 403)">
+                <return-response response-variable-name="response">
+                    <set-status code="403" reason="Forbidden" />
+                    <set-body>@("Missing permission to read blob " + (string)context.Variables["blobUri"] + ". Make sure the 'Storage Blob Data Reader' role is granted for APIM '"+ context.Deployment.ServiceName +"' either at the Storage Account or Container level.")</set-body>
+                </return-response>
+            </when>
+            <when condition="@(((IResponse)context.Variables["blobdata"]).StatusCode == 404)">
+                <return-response response-variable-name="response">
+                    <set-status code="404" reason="Not found" />
+                    <set-body>@("Cannot find blob " + (string)context.Variables["blobUri"])</set-body>
+                </return-response>
+            </when>
+        </choose>
+        <!--Get User Delegation Key using Managed Identity-->
+        <send-request mode="new" timeout="20" response-variable-name="userdelegationkey" ignore-error="true">
+            <set-url>@("https://"+((string)context.Request.MatchedParameters["storageAccountName"]) + ".blob.core.windows.net/?restype=service&comp=userdelegationkey")</set-url>
+            <set-method>POST</set-method>
+            <set-header name="x-ms-version" exists-action="override">
+                <value>2020-12-06</value>
+            </set-header>
+            <set-body>@{
+                return "<KeyInfo>" +
+                    "<Start>" + DateTime.UtcNow.ToString("u").Replace(" ", "T") + "</Start>" +
+                    "<Expiry>" + DateTime.UtcNow.AddSeconds((string)context.Request.MatchedParameters["ttlInSeconds"]).ToString("u").Replace(" ", "T") + "</Expiry>" + 
+                "</KeyInfo>";
+                }</set-body>
+            <authentication-managed-identity resource="https://storage.azure.com" />
+        </send-request>
+        <choose>
+            <when condition="@(((IResponse)context.Variables["userdelegationkey"]).StatusCode == 403)">
+                <return-response response-variable-name="response">
+                    <set-status code="403" reason="Forbidden" />
+                    <set-body>@("Missing permission to generate SAS for blob " + (string)context.Variables["blobUri"] + ". Make sure the 'Storage Blob Delegator' role is granted for APIM '"+ context.Deployment.ServiceName +"' at the Storage Account level.")</set-body>
+                </return-response>
+            </when>
+        </choose>
+        <return-response>
+            <set-body>@{
+                XmlDocument xml = new XmlDocument();
+                string userDelegationKeyResponse = ((IResponse)context.Variables["userdelegationkey"]).Body.As<string>();
+                xml.LoadXml(userDelegationKeyResponse);
+                var signedKeyObjectId = xml.DocumentElement.SelectSingleNode("/UserDelegationKey/SignedOid").InnerText;
+                var signedKeyTenantId = xml.DocumentElement.SelectSingleNode("/UserDelegationKey/SignedTid").InnerText;
+                var signedKeyStart = xml.DocumentElement.SelectSingleNode("/UserDelegationKey/SignedStart").InnerText;
+                var signedKeyExpiry = xml.DocumentElement.SelectSingleNode("/UserDelegationKey/SignedExpiry").InnerText;
+                var signedKeyService = xml.DocumentElement.SelectSingleNode("/UserDelegationKey/SignedService").InnerText;
+                var signedKeyVersion = xml.DocumentElement.SelectSingleNode("/UserDelegationKey/SignedVersion").InnerText;
+                var signedKey = xml.DocumentElement.SelectSingleNode("/UserDelegationKey/Value").InnerText;
+
+                var signedPermissions = "r";
+                var signedStart = "";
+                var signedExpiry = DateTime.UtcNow.AddSeconds((string)context.Request.MatchedParameters["storageAccountName"]).ToString("yyyy-MM-ddTHH:mm:ssZ");
+                var canonicalizedResource = $"/blob/{((string)context.Request.MatchedParameters["storageAccountName"])}/{((string)context.Request.MatchedParameters["containerName"])}/{((string)context.Request.MatchedParameters["blobName"])}";
+                var signedAuthorizedUserObjectId = "";
+                var signedUnauthorizedUserObjectId = "";
+                var signedCorrelationId = "";
+                var signedIP = "";
+                var signedProtocol = "https";
+                var signedVersion = "2020-12-06";
+                var signedResource = "b";
+                var signedSnapshotTime = "";
+                var signedEncryptionScope = "";
+                var rscc = "";
+                var rscd = "";
+                var rsce = "";
+                var rscl = "";
+                var rsct = "";
+
+                var stringToSign = signedPermissions + "\n" +
+                    signedStart + "\n" +
+                    signedExpiry + "\n" +
+                    canonicalizedResource + "\n" +
+                    signedKeyObjectId + "\n" +
+                    signedKeyTenantId + "\n" +
+                    signedKeyStart + "\n" +
+                    signedKeyExpiry + "\n" +
+                    signedKeyService + "\n" +
+                    signedKeyVersion + "\n" +
+                    signedAuthorizedUserObjectId + "\n" +
+                    signedUnauthorizedUserObjectId + "\n" +
+                    signedCorrelationId + "\n" +
+                    signedIP + "\n" +
+                    signedProtocol + "\n" +
+                    signedVersion + "\n" +
+                    signedResource + "\n" +
+                    signedSnapshotTime + "\n" +
+                    signedEncryptionScope + "\n" +
+                    rscc + "\n" +
+                    rscd + "\n" +
+                    rsce + "\n" +
+                    rscl + "\n" +
+                    rsct;
+                System.Security.Cryptography.HMACSHA256 hasher = new System.Security.Cryptography.HMACSHA256(Convert.FromBase64String(signedKey));
+
+                var sig = System.Net.WebUtility.UrlEncode(Convert.ToBase64String(hasher.ComputeHash(System.Text.Encoding.UTF8.GetBytes(stringToSign))));
+
+                var sas = $"?sv={signedVersion}&sp={signedPermissions}&se={signedExpiry}&sr={signedResource}&skoid={signedKeyObjectId}&sktid={signedKeyTenantId}&skt={signedKeyStart}&ske={signedKeyExpiry}&sks={signedKeyService}&skv={signedKeyVersion}&spr={signedProtocol}&sig={sig}";
+
+                return (string)context.Variables["blobUri"] + sas;
+            }</set-body>
+        </return-response>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
