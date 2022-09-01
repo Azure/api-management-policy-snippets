@@ -1,0 +1,62 @@
+<!--
+    This policy sample demonstrates how to respond to Power Query request to support the "Organizational Account" login flow for a downstream API.
+
+    References:
+        Expected response from Power Query docuementation:
+            https://docs.microsoft.com/power-query/connectorauthentication#supported-workflow
+        
+        How to map jwt token from AAD obtained via Power Query for SAP OData request and SAP OAuth Server
+            https://github.com/Azure/api-management-policy-snippets/blob/master/examples/Request%20OAuth2%20access%20token%20from%20SAP%20using%20AAD%20JWT%20token.xml
+
+    IMPORTANT:
+        - Power Query requires a verifiable resource for the login process. Hence a custom domain for APIM needs to be configured.
+        - {{AADTenantID}} needs to be maintained via an APIM Named Value configuration.
+        - a672d62c-fc7b-4e81-a576-e60dc46e951d is the default client id for Power Query. It should be verified from the documentation: https://docs.microsoft.com/power-query/connectorauthentication#supported-workflow
+-->
+<policies>
+    <inbound>
+        <base />
+        <choose>
+            <!-- if empty Bearer assume Power Query signin request as described here: https://docs.microsoft.com/power-query/connectorauthentication#supported-workflow -->
+            <when condition="@(context.Request.Headers.GetValueOrDefault("Authorization","").Trim().Equals("Bearer"))">
+                <return-response>
+                    <set-status code="401" reason="Unauthorized" />
+                    <set-header name="WWW-Authenticate" exists-action="override">
+                        <value>Bearer authorization_uri=https://login.microsoftonline.com/{{AADTenantId}}/oauth2/authorize?response_type=code%26client_id=a672d62c-fc7b-4e81-a576-e60dc46e951d</value>
+                    </set-header>
+                </return-response>
+            </when>
+            <otherwise>
+                <validate-jwt header-name="Authorization" failed-validation-httpcode="401" require-scheme="Bearer">
+                    <openid-config url="https://login.microsoftonline.com/{{AADTenantId}}/.well-known/openid-configuration" />
+                    <audiences>
+                        <audience>https://your-custom-apim-domain</audience>
+                    </audiences>
+                    <issuers>
+                        <issuer>https://sts.windows.net/{{AADTenantId}}/</issuer>
+                    </issuers>
+                    <required-claims>
+                        <claim name="scp" match="all" separator=" ">
+                            <value>user_impersonation</value>
+                        </claim>
+                    </required-claims>
+                </validate-jwt>
+            </otherwise>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <choose>
+            <!-- URL rewrite in body only required for GET -->
+            <when condition="@(context.Request.Method == "GET")">
+                <!-- ensure downstream api metadata matches apim caller domain in Power Query -->
+                <find-and-replace from="@(context.Api.ServiceUrl.Host +":"+ context.Api.ServiceUrl.Port + context.Api.ServiceUrl.Path)" to="@(context.Request.OriginalUrl.Host + ":" + context.Request.OriginalUrl.Port + context.Api.Path)" />
+            </when>
+        </choose>
+    </outbound>
+    <on-error>
+    </on-error>
+</policies>
