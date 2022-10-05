@@ -22,7 +22,7 @@
                 <return-response>
                     <set-status code="401" reason="Unauthorized" />
                     <set-header name="WWW-Authenticate" exists-action="override">
-                        <value>Bearer authorization_uri=https://login.microsoftonline.com/{{AADTenantId}}/oauth2/authorize?response_type=code%26client_id=a672d62c-fc7b-4e81-a576-e60dc46e951d</value>
+                        <value>Bearer authorization_uri=https://login.microsoftonline.com/{{AADTenantId}}/oauth2/v2.0/authorize?response_type=code%26client_id=a672d62c-fc7b-4e81-a576-e60dc46e951d</value>
                     </set-header>
                 </return-response>
             </when>
