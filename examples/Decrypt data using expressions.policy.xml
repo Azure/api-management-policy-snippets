@@ -1,0 +1,34 @@
+﻿<!--
+    This policy snippet shows how to decrypt an AES 192 bit encrypted text and return it to caller. 
+    The encrypted text is sent as a JSON element.
+-->
+<policies>
+	<inbound>
+		<base />
+		<set-variable name="IV" value="{{AES-IV}}" />
+		<set-variable name="key" value="{{AES-Key}}" />
+		<set-variable name="plainText" value="@{
+            byte[] inBytes = Convert.FromBase64String(context.Request.Body.As<JObject>().SelectToken("encrpText").ToString());
+            byte[] IV = Convert.FromBase64String((string)context.Variables["IV"]);
+            byte[] key = Convert.FromBase64String((string)context.Variables["key"]);
+            byte[] decryptedBytes = inBytes.Decrypt("Aes", key, IV);
+            return Encoding.UTF8.GetString(decryptedBytes);
+         }" />
+		<return-response>
+			<set-status code="200" reason="Success" />
+			<set-body>@{ 
+                    string inBody = (string)context.Variables["plainText"];                     
+                    return inBody; 
+                }</set-body>
+		</return-response>
+	</inbound>
+	<backend>
+		<base />
+	</backend>
+	<outbound>
+		<base />
+	</outbound>
+	<on-error>
+		<base />
+	</on-error>
+</policies>
