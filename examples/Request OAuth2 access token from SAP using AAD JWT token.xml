@@ -211,7 +211,9 @@
 
              Consider adding "context.Api.Version" to reflect your versioning scheme: https://learn.microsoft.com/azure/api-management/api-management-versions
         -->
-        <!-- Consider Using expression to cater for upper case SAP host names <set-variable name="SAPHostUpperCase" value="@(context.Api.ServiceUrl.Host.ToString().ToUpperCase())" /> -->
+        <!-- Consider Using expression to cater for upper case SAP host names <set-variable name="SAPHostUpperCase" value="@(context.Api.ServiceUrl.Host.ToString().ToUpperCase())" />
+             See SAP Note 129997 and 611361 that discuss the SAP ABAP settings for case sensive host names for reference.
+        -->
         <set-variable name="SAPHost" value="@(context.Api.ServiceUrl.Host.ToString().ToUpperCase())" />
         <find-and-replace from="@(context.Variables["SAPHost"] +":"+ context.Api.ServiceUrl.Port)" to="@(context.Request.OriginalUrl.Host + ":" + context.Request.OriginalUrl.Port + context.Api.Path)" />
     </outbound>
