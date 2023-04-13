@@ -206,13 +206,14 @@
              Otherwise deferred items like /toSalesOrders are represented by SAP known host and port. Example:
              https://10.10.10.10:44300/sap/opu/odata/iwbep/gwsample_basic/BusinessPartnerSet('0100000000')/ToSalesOrders vs.
              https://demo-sap-apim.azure-api.net:443/my-prefix/sap/opu/odata/iwbep/gwsample_basic/BusinessPartnerSet('0100000000')/ToSalesOrders
+
+             URL rewrite in body required for returned OData paths. Otherwise SAP internal host etc. returned.
+
+             Consider adding "context.Api.Version" to reflect your versioning scheme: https://learn.microsoft.com/azure/api-management/api-management-versions
         -->
-        <choose>
-            <!-- URL rewrite in body only required for GET -->
-            <when condition="@(context.Request.Method == "GET")">
-                <find-and-replace from="@(context.Api.ServiceUrl.Host +":"+ context.Api.ServiceUrl.Port)" to="@(context.Request.OriginalUrl.Host + ":" + context.Request.OriginalUrl.Port + context.Api.Path)" />
-            </when>
-        </choose>
+        <!-- Consider Using expression to cater for upper case SAP host names <set-variable name="SAPHostUpperCase" value="@(context.Api.ServiceUrl.Host.ToString().ToUpperCase())" /> -->
+        <set-variable name="SAPHost" value="@(context.Api.ServiceUrl.Host.ToString().ToUpperCase())" />
+        <find-and-replace from="@(context.Variables["SAPHost"] +":"+ context.Api.ServiceUrl.Port)" to="@(context.Request.OriginalUrl.Host + ":" + context.Request.OriginalUrl.Port + context.Api.Path)" />
     </outbound>
     <on-error>
         <base />
