@@ -2,11 +2,12 @@
      The mechanism to map an IdP associated user (in this case Azure Active Directory - AAD) to a SAP backend user
      is often referred to as SAP Principal Propagation.
 -->
-<!-- The policy shows how to exchange an AAD issued access token for an SAP issued Bearer token and forward it to the backend. -->
-<!-- In addition to that it caches the tokens, so that clients can focus on app logic rather than SAP Principal Propagation and to scale the approach. -->
-<!-- Furthermore it handles the X-CSRF-Token handling for update requests. -->
-<!-- Find further details in our blog series on the SAP community: https://blogs.sap.com/2021/08/12/.net-speaks-odata-too-how-to-implement-azure-app-service-with-sap-odata-gateway/ -->
-<!-- Find a Postman collection to test the policy flow here: https://github.com/MartinPankraz/AzureSAPODataReader/blob/master/Templates/AAD_APIM_SAP_Principal_Propagation.postman_collection.json -->
+<!-- The policy shows how to exchange an AAD issued access token for an SAP issued Bearer token and forward it to the backend.
+     In addition to that it caches the tokens, so that clients can focus on app logic rather than SAP Principal Propagation and to scale the approach.
+     Furthermore, it handles the X-CSRF-Token handling for update requests. -->
+<!-- Find further details in our blog series on the SAP community: https://blogs.sap.com/2021/08/12/.net-speaks-odata-too-how-to-implement-azure-app-service-with-sap-odata-gateway/
+     Find a Postman collection to test the policy flow here: https://github.com/MartinPankraz/AzureSAPODataReader/blob/master/Templates/AAD_APIM_SAP_Principal_Propagation.postman_collection.json
+     Find a video guide for the setup of SAP Principal Propagation here: https://github.com/MartinPankraz/SAP-MSTeams-Hero/blob/main/Towel-Bearer/103a-sap-principal-propagation-basics.md   -->
 <!-- Parameters: AADTenantId - format TENANT-GUID, can be optained from Azure portal view for Azure AD for instance -->
 <!-- Parameters: AADRegisteredAppClientId - format APP-GUID, obtained during app registration -->
 <!-- Parameters: AADRegisteredAppClientSecret - a URL encoded secret, obtained during app registration -->
@@ -23,6 +24,8 @@
         <validate-jwt header-name="Authorization" failed-validation-httpcode="401" require-scheme="Bearer">
             <openid-config url="https://login.microsoftonline.com/{{AADTenantId}}/.well-known/openid-configuration" />
             <audiences>
+                <!-- adjust api URI for custom domains if required. -->
+		        <!-- <audience>https://your-custom-domain-for-apim-as-regiesterd-in-aad </audience> -->
                 <audience>api://{{APIMAADRegisteredAppClientId}}</audience>
             </audiences>
             <issuers>
@@ -206,13 +209,15 @@
              Otherwise deferred items like /toSalesOrders are represented by SAP known host and port. Example:
              https://10.10.10.10:44300/sap/opu/odata/iwbep/gwsample_basic/BusinessPartnerSet('0100000000')/ToSalesOrders vs.
              https://demo-sap-apim.azure-api.net:443/my-prefix/sap/opu/odata/iwbep/gwsample_basic/BusinessPartnerSet('0100000000')/ToSalesOrders
+
+             URL rewrite in body required for returned OData paths.
+
+             - Consider adding "/" + "context.Api.Version" to reflect your versioning scheme: https://learn.microsoft.com/azure/api-management/api-management-versions
+             - Consider Using expression "ToString().ToUpper()" to cater for upper case SAP host names. See SAP Note 129997 and 611361 that discuss the SAP ABAP settings for case sensive host names for reference.
+
+               context.Api.ServiceUrl.Host.ToString().ToUpper()
         -->
-        <choose>
-            <!-- URL rewrite in body only required for GET -->
-            <when condition="@(context.Request.Method == "GET")">
-                <find-and-replace from="@(context.Api.ServiceUrl.Host +":"+ context.Api.ServiceUrl.Port)" to="@(context.Request.OriginalUrl.Host + ":" + context.Request.OriginalUrl.Port + context.Api.Path)" />
-            </when>
-        </choose>
+        <find-and-replace from="@(context.Api.ServiceUrl.Host +":"+ context.Api.ServiceUrl.Port)" to="@(context.Request.OriginalUrl.Host + ":" + context.Request.OriginalUrl.Port + context.Api.Path)" />
     </outbound>
     <on-error>
         <base />
