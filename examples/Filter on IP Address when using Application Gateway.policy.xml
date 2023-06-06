@@ -33,8 +33,8 @@
                 //Place IP Ranges into this list in CIDR notation (e.g. "0.0.0.0/0") and separate with commas
                 List<string> cidrList = new List<string>(){
                     "10.0.0.0/8",
-                    "172.0.0.0/24",
-                    "192.168.0.0/24"
+                    "172.16.0.0/12",
+                    "192.168.0.0/16"
                 };
                 foreach (string cidrAddress in cidrList)
                 {
