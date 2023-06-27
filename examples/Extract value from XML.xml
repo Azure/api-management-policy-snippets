@@ -1,0 +1,54 @@
+<!--
+    This policy sample demonstrates the extraction of a value from a string value such as found in a request body or a response body. 
+    As we are only looking to read a value, not manipulate an XML document, it is much better for memory usage to use an XMLReader with 
+    a forward cursor instead of an  XMLDocument. This is especially important the larger your XML string may be.
+
+    For ease of demonstration, we assign the value to a return response, which is then returned to the caller of the API operation.
+
+    Credit to John Scott (jftl6y) for the contribution!
+-->
+<policies>
+    <inbound>
+        <base />
+        <return-response>
+            <set-status code="200" />
+            <set-body>@{
+                // The XML from which you want to extract information may come from various places. 
+                var xml = "<?xml version=\"1.0\" encoding=\"utf-8\"?><soap:Envelope xmlns:soap=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><soap:Body><SomeCustomElement><SomeCustomNestedElement>ABCDEF123456789</SomeCustomNestedElement></SomeCustomElement></soap:Body></soap:Envelope>";
+                //var xml = context.Request.Body.As<string>(preserveContent: true);     //read from request body while also preserving the body
+                //var xml = context.Response.Body.As<string>(preserveContent: true);    //read from response body while also preserving the body
+
+                var ret = "";
+                
+                using (XmlReader reader = XmlReader.Create(new StringReader(xml))) 
+                {
+                    reader.MoveToContent();
+                    reader.Read();
+
+                    while (!reader.EOF && ret == "")
+                    {
+                        // Read until we reach the node of interest, then extract the information into a return value, which will gracefully break out of the loop
+                        if (reader.Name == "SomeCustomNestedElement")
+                        {
+                            var el = XNode.ReadFrom(reader) as XElement;
+                            ret = el == null ? "" : el.Value;
+                        } else {
+                            reader.Read();
+                        }
+                    }
+                }
+
+                return ret;
+            }</set-body>
+        </return-response>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
