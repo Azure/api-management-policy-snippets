@@ -1,0 +1,33 @@
+﻿<!--
+    The policy defined in this file demonstrates how to send Azure OpenAI token usage metrics to Application Insights using <emit-metric> policy.
+
+    The metrics sent are 'Completion Tokens', 'Prompt Tokens' and 'Total Tokens' with the 'Client IP' dimension.
+
+    See the documentation for details: https://learn.microsoft.com/en-us/azure/api-management/emit-metric-policy
+-->
+<policies>
+  <inbound>
+    <base />
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+    <set-variable name="completionTokens" value="@(context.Response.Body?.As<JObject>(preserveContent: true)["usage"]["completion_tokens"].Value<double>())" />
+    <set-variable name="promptTokens" value="@(context.Response.Body?.As<JObject>(preserveContent: true)["usage"]["prompt_tokens"].Value<double>())" />
+    <set-variable name="totalTokens" value="@(context.Response.Body?.As<JObject>(preserveContent: true)["usage"]["total_tokens"].Value<double>())" />
+    <emit-metric name="Completion Tokens" value="@((double)context.Variables["completionTokens"])" namespace="azure-openai">
+      <dimension name="Client IP" value="@(context.Request.IpAddress)" />
+    </emit-metric>
+    <emit-metric name="Prompt Tokens" value="@((double)context.Variables["promptTokens"])" namespace="azure-openai">
+      <dimension name="Client IP" value="@(context.Request.IpAddress)" />
+    </emit-metric>
+    <emit-metric name="Total Tokens" value="@((double)context.Variables["totalTokens"])" namespace="azure-openai">
+      <dimension name="Client IP" value="@(context.Request.IpAddress)" />
+    </emit-metric>
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
