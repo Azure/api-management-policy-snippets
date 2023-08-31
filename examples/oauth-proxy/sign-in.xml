@@ -1,0 +1,65 @@
+<policies>
+    <inbound>
+        <!-- Check if we already got a session cookie? If they do and it is fine then we don't want to kick-off a flow as we might end up in a redirect spin -->
+        <set-variable name="redirect" value="@(Uri.UnescapeDataString(context.Request.Url.Query.GetValueOrDefault("redirect", string.Empty)))" />
+        <choose>
+            <!-- Without a redirec we don't know where to send them back to. Error out the flow -->
+            <when condition="@(context.Variables["redirect"] == string.Empty)">
+                <return-response>
+                    <set-status code="400" reason="Bad Request" />
+                    <set-body>Missing redirect parameter</set-body>
+                </return-response>
+            </when>
+            <otherwise>
+                <choose>
+                    <!-- Check if the redirect is to one of the oauth endpoints. 
+                    This would create a redirect loop. Let's not allow this -->
+                    <when condition="@(new Uri((string)context.Variables["redirect"]).AbsolutePath.StartsWith("/oauth", StringComparison.InvariantCultureIgnoreCase))">
+                        <return-response>
+                            <set-status code="400" reason="Bad Request" />
+                            <set-body>Invalid redirect</set-body>
+                        </return-response>
+                    </when>
+                    <otherwise>
+                        <!-- create 2 secrets to hold the state / nonce and a unique cookie -->
+                        <set-variable name="state" value="@(Guid.NewGuid().ToString() + Guid.NewGuid().ToString())" />
+                        <set-variable name="nonce" value="@(Guid.NewGuid().ToString() + Guid.NewGuid().ToString())" />
+
+                        <!-- Create a unique guid to represent this particular sign-in flow 
+                        We will look for this when the IdP responds with a code. That will help
+                        correlate this call with the callback -->
+                        <set-variable name="cookie" value="@(Guid.NewGuid().ToString())" />
+
+                        <!-- Store the state and the nonce in the cache. We'll need to confirm these for security purposes when the corresponding callback appears to complete the flow -->
+                        <!-- Use the state to store the redirect. We could send it in the round-trip, but let's keep it here for now -->
+                        <cache-store-value key="@($"signin-{(string)context.Variables["cookie"]}-state")" value="@((string)context.Variables["redirect"])" duration="300" />
+                        <cache-store-value key="@($"signin-{(string)context.Variables["cookie"]}-nonce")" value="@((string)context.Variables["nonce"])" duration="300" />
+
+                        <!-- Standard OIDC redirect flow. Currently AAD specific, but easy to tweak to your provider of choice -->
+                        <set-variable name="aadRedirect" value="@($"https://login.microsoftonline.com/{{TenantId}}/oauth2/v2.0/authorize?client_id={{ClientId}}&response_type=code&redirect_uri=https%3A%2F%2Fapim-lockeddownapimwithselfhostedgateway-dev.azure-api.net%2Foauth%2Fcallback&response_mode=form_post&scope=openid%20profile%20offline_access&state={context.Variables["state"]}&nonce={context.Variables["nonce"]}")" />
+
+                        <return-response>
+                            <set-status code="302" />
+                            <set-header name="Location" exists-action="override">
+                                <value>@((string)context.Variables["aadRedirect"])</value>
+                            </set-header>
+                            <set-header name="Set-Cookie" exists-action="override">
+                                <value>@($"oidc-{(string)context.Variables["state"]}={(string)context.Variables["cookie"]}; Secure; SameSite=None; Path=/")</value>
+                            </set-header>
+                        </return-response>
+                    </otherwise>
+                </choose>
+            </otherwise>
+        </choose>
+        <base />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

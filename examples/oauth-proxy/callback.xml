@@ -1,0 +1,111 @@
+<policies>
+    <inbound>
+        <!-- Get the authentication code from the incoming form post. -->
+        <set-variable name="code" value="@(context.Request.Body.AsFormUrlEncodedContent(preserveContent: true)["code"].Single())" />
+        <!-- Get the state from the incoming form post. -->
+        <set-variable name="state" value="@(context.Request.Body.AsFormUrlEncodedContent()["state"].Single())" />
+        <!-- Grab the cookie that comes in. The state should match that of the cookie. -->
+        <set-variable name="incomingCookie" value="@(context.Request.Headers["cookie"].Single().Split(';').Select(cookie => cookie.Trim().Split('=')).Single(cookie => cookie[0] == $"oidc-{(string)context.Variables["state"]}")[1])" />
+        <!-- get the state and the nonce so we can check them against the token we exchange for -->
+        <cache-lookup-value key="@($"signin-{context.Variables["incomingCookie"]}-state")" default-value="" variable-name="expected-state" />
+        <cache-lookup-value key="@($"signin-{context.Variables["incomingCookie"]}-nonce")" default-value="" variable-name="expected-nonce" />
+        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-state")" />
+        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-nonce")" />
+        <choose>
+            <when condition="@((string)context.Variables["expected-state"] == string.Empty)">
+                <!-- Couldn't find a matching state variable. Error the callback. -->
+                <return-response>
+                    <set-status code="401" reason="Unexpected state" />
+                    <set-header name="Set-Cookie" exists-action="override">
+                        <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                    </set-header>
+                    <set-body>@($"{(string)context.Variables["state"]} != {(string)context.Variables["expected-state"]}")</set-body>
+                </return-response>
+            </when>
+            <!-- If we found something in the cache using the incoming state, then the callback is linked to a known original request. -->
+            <!-- This proves that the callback is correlated to the original token request -->
+            <when condition="@((string)context.Variables["expected-state"] != "")">
+                <!-- Get a backchannel call ready to switch the code for the token -->
+                <set-variable name="tokenData" value="@($"client_id={{ClientId}}&scope=openid&code={(string)context.Variables["code"]}&redirect_uri=https%3A%2F%2Fapim-lockeddownapimwithselfhostedgateway-dev.azure-api.net%2Foauth%2Fcallback&grant_type=authorization_code&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}")" />
+
+                <!-- Backchannel call to get the tokens -->
+                <send-request mode="new" response-variable-name="tokens" timeout="60" ignore-error="false">
+                    <set-url>https://login.microsoftonline.com/{{TenantId}}/oauth2/v2.0/token</set-url>
+                    <set-method>POST</set-method>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/x-www-form-urlencoded</value>
+                    </set-header>
+                    <set-body>@((string)context.Variables["tokenData"])</set-body>
+                </send-request>
+                <set-variable name="tokenResponse" value="@(((IResponse)context.Variables["tokens"]).Body.As<JObject>())" />
+                <!-- check the nonce matches the one in the cookie. Then we know this token is in response to the original request -->
+                <set-variable name="idToken" value="@((string)((JObject)context.Variables["tokenResponse"] )["id_token"])" />
+                <!-- Check the nonce. If it matches then we are good to issue the session cookie -->
+                <!-- build a session cookie. We can slide the expiration of this. Store the associated tokens in the cache. Set the expiration to be same as the refresh token -->
+                <set-variable name="idTokenNonce" value="@((((string)context.Variables["idToken"]).AsJwt()).Claims.GetValueOrDefault("nonce", "missing"))" />
+                <choose>
+                    <!-- Check the nonce matches the one we stoerd in cache -->
+                    <when condition="@((string)context.Variables["expected-nonce"] == (string)context.Variables["idTokenNonce"])">
+                        <!-- Find when the tokens expire. We'll make the tokens in the cache drop out at this time -->
+                        <set-variable name="refreshTime" value="@((int)((JObject)context.Variables["tokenResponse"])["expires_in"])" />
+                        <cache-store-value key="@($"tokens-{context.Variables["incomingCookie"]}")" value="@((JObject)context.Variables["tokenResponse"])" duration="@((int)context.Variables["refreshTime"])" />
+                        <!-- Store another refresh time... We'll refresh the tokens half way to their expiry date. Try to avoid last minute timing errors -->
+                        <cache-store-value key="@($"tokens-{context.Variables["incomingCookie"]}-refreshAt")" value="@(DateTimeOffset.UtcNow.AddSeconds((int)context.Variables["refreshTime"] / 2).ToUnixTimeSeconds())" duration="@((int)context.Variables["refreshTime"])" />
+                        <!-- Make the cookie tamperproof -->
+                        <set-variable name="cookie-expiry" value="@(DateTimeOffset.UtcNow.AddSeconds({{SessionCookieExpirationInSeconds}}).ToUnixTimeMilliseconds())" />
+                        <set-variable name="cookie-prefix" value="@($"{(string)context.Variables["incomingCookie"]}.{(long)context.Variables["cookie-expiry"]}")" />
+                        <set-variable name="cookie-signature" value="@(Convert.ToBase64String(new System.Security.Cryptography.HMACSHA512(Convert.FromBase64String("{{SessionCookieKey}}")).ComputeHash(Encoding.UTF8.GetBytes((string)context.Variables["cookie-prefix"]))).Replace("=", "_"))" />
+                        <return-response>
+                            <set-status code="302" reason="Found" />
+                            <set-header name="Set-Cookie" exists-action="override">
+                                <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                            </set-header>
+                            <set-header name="Set-Cookie" exists-action="append">
+                                <value>@($"oidcsession={(string)context.Variables["cookie-prefix"]}.{(string)context.Variables["cookie-signature"]}; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}")</value>
+                            </set-header>
+                            <set-header name="Location" exists-action="override">
+                                <value>@((string)context.Variables["expected-state"])</value>
+                            </set-header>
+                        </return-response>
+                    </when>
+                    <otherwise>
+                        <!-- handle the case where the nonces don't match. Could be a hijack attempt to get our cookie using a different unfinished front-channel flow -->
+                        <return-response>
+                            <set-status code="401" reason="Unexpected nonce" />
+                            <set-header name="Set-Cookie" exists-action="override">
+                                <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                            </set-header>
+                            <set-body>@($"{(string)context.Variables["expected-nonce"]} != {(string)context.Variables["idTokenNonce"]}")</set-body>
+                        </return-response>
+                    </otherwise>
+                </choose>
+            </when>
+            <otherwise>
+                <!-- We didn't have a cache entry for this state. It's either made-up, or this is an attempt to reuse it. Either way, it's a 401 -->
+                <return-response>
+                    <set-status code="401" reason="Unexpected state" />
+                    <set-header name="Set-Cookie" exists-action="override">
+                        <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                    </set-header>
+                    <set-body>@($"{(string)context.Variables["state"]} != {(string)context.Variables["expected-state"]}")</set-body>
+                </return-response>
+            </otherwise>
+        </choose>
+        <base />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+        <!-- Any errors lets clean-up the cookies we were using to track the 3 legged flow so they don't stack up -->
+        <set-header name="Set-Cookie" exists-action="override">
+            <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+        </set-header>
+        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-state")" />
+        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-nonce")" />
+    </on-error>
+</policies>
