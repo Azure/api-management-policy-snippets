@@ -36,7 +36,7 @@
                         <cache-store-value key="@($"signin-{(string)context.Variables["cookie"]}-nonce")" value="@((string)context.Variables["nonce"])" duration="300" />
 
                         <!-- Standard OIDC redirect flow. Currently AAD specific, but easy to tweak to your provider of choice -->
-                        <set-variable name="aadRedirect" value="@($"https://login.microsoftonline.com/{{TenantId}}/oauth2/v2.0/authorize?client_id={{ClientId}}&response_type=code&redirect_uri=https%3A%2F%2Fapim-lockeddownapimwithselfhostedgateway-dev.azure-api.net%2Foauth%2Fcallback&response_mode=form_post&scope=openid%20profile%20offline_access&state={context.Variables["state"]}&nonce={context.Variables["nonce"]}")" />
+                        <set-variable name="aadRedirect" value="@($"https://login.microsoftonline.com/{{TenantId}}/oauth2/v2.0/authorize?client_id={{ClientId}}&response_type=code&redirect_uri=https://{context.Request.OriginalUrl.Host}%2Foauth%2Fcallback&response_mode=form_post&scope=openid%20profile%20offline_access&state={context.Variables["state"]}&nonce={context.Variables["nonce"]}")" />
 
                         <return-response>
                             <set-status code="302" />
