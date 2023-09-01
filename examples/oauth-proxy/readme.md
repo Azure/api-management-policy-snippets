@@ -12,7 +12,11 @@ The 4 policies fulfill different parts of the flow. I recommend setting up an AP
 | ClientId | AAD ClientId Id representing the application you are signing in against |
 | ClientSecret | AAD Client Secret used to exchange codes for tokens |
 | SessionCookieKey | A Base 64 Encoded string representing a 128 random byte array. Used to sign cookies to check their validity |
+| TokenEncryptionKey | A Base 64 Encoded string of 32 random bytes, used as the Key for an AES 256 encryption algorithm for encrypting tokens at rest |
 | SessionCookieExpirationInSeconds | How long to allow session cookies to stay active for |
+
+> You can generate the Base 64 random bytes in dotnet using ``` Convert.ToBase64String(RandomNumberGenerator.GetBytes(<size>)) ```
+
 
 
 ## Session Check fragment

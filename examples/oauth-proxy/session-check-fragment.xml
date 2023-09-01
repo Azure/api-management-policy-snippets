@@ -56,8 +56,19 @@
 	</choose>
 
 	<!-- Let's get the token from session and do some checks on it -->
-	<cache-lookup-value key="@($"tokens-{context.Variables["cacheKey"]}")" default-value="" variable-name="tokenResponse" />
+	<cache-lookup-value key="@($"tokens-{context.Variables["cacheKey"]}")" default-value="" variable-name="encryptedTokenResponse" />
 	<cache-lookup-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshAt")" default-value="" variable-name="refreshAt" />
+
+	<!-- decrypt and turn back into a JObject -->
+	<set-variable name="tokenResponse" value="@{
+		var token = Convert.FromBase64String(((string)context.Variables["encryptedTokenResponse"]));
+		var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
+		var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
+		var decryptedBytes = token.Decrypt("Aes", key, iv);
+        var decryptedTokens = Encoding.UTF8.GetString(decryptedBytes);
+		return JsonConvert.DeserializeObject<JObject>(decryptedTokens);
+	}" />
+
 	<set-variable name="refresh_token" value="@((string)((JObject)context.Variables["tokenResponse"])["refresh_token"])" />
 	<set-variable name="access_token" value="@((string)((JObject)context.Variables["tokenResponse"])["access_token"])" />
 	<choose>
@@ -92,8 +103,17 @@
                     <set-variable name="refreshTime" value="@((int)((JObject)context.Variables["tokenResponse"])["expires_in"])" />
                 	<set-variable name="access_token" value="@((string)((JObject)context.Variables["tokenResponse"])["access_token"])" />
 
+					<!-- Encrypt the tokenResponse variable, and store that in cache -->                        
+					<set-variable name="encryptedToken" value="@{
+						var token = Encoding.UTF8.GetBytes(((JObject)context.Variables["tokenResponse"]).ToString());
+						var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
+						var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
+						var encryptedCookie = token.Encrypt("Aes", key, iv);
+						return Convert.ToBase64String(encryptedCookie);
+					}" />
+
                     <!-- Update the cache with the new token, as-well as the refresh time (half of the suggested) -->
-                    <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}")" value="@((string)context.Variables["access_token"])" duration="@((int)context.Variables["refreshTime"])" />
+                    <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}")" value="@((string)context.Variables["encryptedToken"])" duration="@((int)context.Variables["refreshTime"])" />
                     <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshAt")" value="@(DateTimeOffset.UtcNow.AddSeconds((int)context.Variables["refreshTime"] / 2).ToUnixTimeSeconds())" duration="@((int)context.Variables["refreshTime"])" />
 
                 </otherwise>

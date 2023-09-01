@@ -62,13 +62,26 @@
                     <when condition="@((string)context.Variables["expected-nonce"] == (string)context.Variables["idTokenNonce"])">
                         <!-- Find when the tokens expire. We'll make the tokens in the cache drop out at this time -->
                         <set-variable name="refreshTime" value="@((int)((JObject)context.Variables["tokenResponse"])["expires_in"])" />
-                        <cache-store-value key="@($"tokens-{context.Variables["incomingCookie"]}")" value="@((JObject)context.Variables["tokenResponse"])" duration="@((int)context.Variables["refreshTime"])" />
+
+                        <!-- Encrypt the tokenResponse variable, and store that in cache -->                        
+                        <set-variable name="encryptedToken" value="@{
+                            var token = Encoding.UTF8.GetBytes(((JObject)context.Variables["tokenResponse"]).ToString());
+                            var iv = Guid.Parse((string)context.Variables["incomingCookie"]).ToByteArray();
+                            var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
+                            var encryptedCookie = token.Encrypt("Aes", key, iv);
+                            return Convert.ToBase64String(encryptedCookie);
+                        }" />
+
+                        <!-- Store the encrypted token in the cache. -->
+                        <cache-store-value key="@($"tokens-{context.Variables["incomingCookie"]}")" value="@((string)context.Variables["encryptedToken"])" duration="@((int)context.Variables["refreshTime"])" />
                         <!-- Store another refresh time... We'll refresh the tokens half way to their expiry date. Try to avoid last minute timing errors -->
                         <cache-store-value key="@($"tokens-{context.Variables["incomingCookie"]}-refreshAt")" value="@(DateTimeOffset.UtcNow.AddSeconds((int)context.Variables["refreshTime"] / 2).ToUnixTimeSeconds())" duration="@((int)context.Variables["refreshTime"])" />
-                        <!-- Make the cookie tamperproof -->
+
+                        <!-- Make the cookie tamper-proof by adding a signature alongside its expiry date -->
                         <set-variable name="cookie-expiry" value="@(DateTimeOffset.UtcNow.AddSeconds({{SessionCookieExpirationInSeconds}}).ToUnixTimeMilliseconds())" />
                         <set-variable name="cookie-prefix" value="@($"{(string)context.Variables["incomingCookie"]}.{(long)context.Variables["cookie-expiry"]}")" />
                         <set-variable name="cookie-signature" value="@(Convert.ToBase64String(new System.Security.Cryptography.HMACSHA512(Convert.FromBase64String("{{SessionCookieKey}}")).ComputeHash(Encoding.UTF8.GetBytes((string)context.Variables["cookie-prefix"]))).Replace("=", "_"))" />
+
                         <return-response>
                             <set-status code="302" reason="Found" />
                             <set-header name="Set-Cookie" exists-action="override">
