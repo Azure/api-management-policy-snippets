@@ -9,8 +9,10 @@
         <!-- get the state and the nonce so we can check them against the token we exchange for -->
         <cache-lookup-value key="@($"signin-{context.Variables["incomingCookie"]}-state")" default-value="" variable-name="expected-state" />
         <cache-lookup-value key="@($"signin-{context.Variables["incomingCookie"]}-nonce")" default-value="" variable-name="expected-nonce" />
+        <cache-lookup-value key="@($"signin-{context.Variables["incomingCookie"]}-code-challenge")" default-value="" variable-name="code-challenge" />
         <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-state")" />
         <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-nonce")" />
+        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-code-challenge")" />
         <choose>
             <when condition="@((string)context.Variables["expected-state"] == string.Empty)">
                 <!-- Couldn't find a matching state variable. Error the callback. -->
@@ -26,7 +28,7 @@
             <!-- This proves that the callback is correlated to the original token request -->
             <when condition="@((string)context.Variables["expected-state"] != "")">
                 <!-- Get a backchannel call ready to switch the code for the token -->
-                <set-variable name="tokenData" value="@($"client_id={{ClientId}}&scope=openid&code={(string)context.Variables["code"]}&redirect_uri=https://{context.Request.OriginalUrl.Host}%2Foauth%2Fcallback&grant_type=authorization_code&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}")" />
+                <set-variable name="tokenData" value="@($"client_id={{ClientId}}&scope=openid&code={(string)context.Variables["code"]}&redirect_uri=https://{context.Request.OriginalUrl.Host}%2Foauth%2Fcallback&grant_type=authorization_code&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}&code_verifier={(string)context.Variables["code-challenge"]}")" />
 
                 <!-- Backchannel call to get the tokens -->
                 <send-request mode="new" response-variable-name="tokens" timeout="60" ignore-error="false">
@@ -37,6 +39,19 @@
                     </set-header>
                     <set-body>@((string)context.Variables["tokenData"])</set-body>
                 </send-request>
+
+                <choose>
+                    <when condition="@(((IResponse)context.Variables["tokens"]).StatusCode != 200)">
+                        <return-response>
+                            <set-status code="401" reason="An error occurred" />
+                            <set-header name="Set-Cookie" exists-action="override">
+                                <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                            </set-header>
+                            <set-body>@(((IResponse)context.Variables["tokens"]).Body.As<String>())</set-body>
+                        </return-response>
+                    </when>
+                </choose>
+
                 <set-variable name="tokenResponse" value="@(((IResponse)context.Variables["tokens"]).Body.As<JObject>())" />
                 <!-- check the nonce matches the one in the cookie. Then we know this token is in response to the original request -->
                 <set-variable name="idToken" value="@((string)((JObject)context.Variables["tokenResponse"] )["id_token"])" />
@@ -107,5 +122,6 @@
         </set-header>
         <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-state")" />
         <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-nonce")" />
+        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-code-challenge")" />
     </on-error>
 </policies>

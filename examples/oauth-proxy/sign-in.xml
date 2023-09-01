@@ -24,6 +24,10 @@
                         <!-- create 2 secrets to hold the state / nonce and a unique cookie -->
                         <set-variable name="state" value="@(Guid.NewGuid().ToString() + Guid.NewGuid().ToString())" />
                         <set-variable name="nonce" value="@(Guid.NewGuid().ToString() + Guid.NewGuid().ToString())" />
+                        <set-variable name="code-challenge" value="@(Guid.NewGuid().ToString() + Guid.NewGuid().ToString())" />
+
+                        <!-- Build code-challenge by base-64 url encoding as described here: https://datatracker.ietf.org/doc/html/rfc7636#page-14 -->
+                        <set-variable name="code-challenge-sha256" value="@(Convert.ToBase64String(SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes((string)context.Variables["code-challenge"]))).Split('=')[0].Replace('+', '-').Replace('/', '_'))" />
 
                         <!-- Create a unique guid to represent this particular sign-in flow 
                         We will look for this when the IdP responds with a code. That will help
@@ -34,9 +38,10 @@
                         <!-- Use the state to store the redirect. We could send it in the round-trip, but let's keep it here for now -->
                         <cache-store-value key="@($"signin-{(string)context.Variables["cookie"]}-state")" value="@((string)context.Variables["redirect"])" duration="300" />
                         <cache-store-value key="@($"signin-{(string)context.Variables["cookie"]}-nonce")" value="@((string)context.Variables["nonce"])" duration="300" />
+                        <cache-store-value key="@($"signin-{(string)context.Variables["cookie"]}-code-challenge")" value="@((string)context.Variables["code-challenge"])" duration="300" />
 
                         <!-- Standard OIDC redirect flow. Currently AAD specific, but easy to tweak to your provider of choice -->
-                        <set-variable name="aadRedirect" value="@($"https://login.microsoftonline.com/{{TenantId}}/oauth2/v2.0/authorize?client_id={{ClientId}}&response_type=code&redirect_uri=https://{context.Request.OriginalUrl.Host}%2Foauth%2Fcallback&response_mode=form_post&scope=openid%20profile%20offline_access&state={context.Variables["state"]}&nonce={context.Variables["nonce"]}")" />
+                        <set-variable name="aadRedirect" value="@($"https://login.microsoftonline.com/{{TenantId}}/oauth2/v2.0/authorize?client_id={{ClientId}}&response_type=code&redirect_uri=https://{context.Request.OriginalUrl.Host}%2Foauth%2Fcallback&response_mode=form_post&scope=openid%20profile%20offline_access&state={context.Variables["state"]}&nonce={context.Variables["nonce"]}&code_challenge={Uri.EscapeDataString((string)context.Variables["code-challenge-sha256"])}&code_challenge_method=S256")" />
 
                         <return-response>
                             <set-status code="302" />
