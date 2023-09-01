@@ -1,8 +1,8 @@
-# OAuth Proxy APIm policies
+# OAuth Proxy Azure API Management policies
 
 The policies in this folder provide support for an OAuth Proxy similar that works in a similar way to App Service Authentication.
 
-The 4 policies fulfill different parts of the flow. I recommend setting up an API called 'oauth' in your APIm, and having 2 operations off it, both unauthenticated.
+The 4 policies fulfill different parts of the flow. I recommend setting up an API called 'oauth' in your Azure API Management, and having two unauthenticated operations on it.
 
 ### Required Named Values
 
