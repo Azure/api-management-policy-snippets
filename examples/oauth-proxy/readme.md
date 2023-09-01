@@ -27,6 +27,7 @@ This fragment is intended to sit at a high-level around any calls you need to pr
 
 It checks for an incoming session-cookie and either
  - Redirects to oauth/signin if invalid / expired
+ - Fetches tokens from Redis, and decrypts them using the Session-Id (IV), and the TokenEncryptionKey (Key) 
  - Renews access tokens using a refresh-token if they are nearing expiration
  - Appends the Bearer token to the request for use by the downstream API.
 
@@ -60,7 +61,8 @@ This policy handles a callback from an IdP to complete an OIDC flow.
 - If the state parameter in the querystring from the IdP matches the cookie, and was stored in our cache, then switch the code for a token
 - Check the nonce in the returned token matches the nonce stored in session
 - Return 401 if we cannot match the nonce
-- Store the id_token, access_token, and refresh_tokens in cache.
+- Encrypts the tokens using the Session-Id (IV), and the TokenEncryptionKey (Key) 
+- Store the encrypted tokens in Redis
 - Set a session-cookie which comprises of our cache-key, the cookies expiry timestamp, and sign it using a HMAC-SHA-512 signature creating using the SessionCookieKey named value.
 
 ## Sliding Session Cookie fragment
