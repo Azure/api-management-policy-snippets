@@ -1,6 +1,6 @@
 # OAuth Proxy Azure API Management policies
 
-The policies in this folder provide support for an OAuth Proxy similar that works in a similar way to App Service Authentication.
+The policies in this folder provide support for an OAuth Proxy that works in a similar way to App Service Authentication.
 
 ## Policies
 | Policy Name | Purpose | How to use |
