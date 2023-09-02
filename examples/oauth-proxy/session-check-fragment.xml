@@ -8,7 +8,7 @@
 	<!-- Grab the incoming session cookie -->
 	<set-variable name="incomingFullSessionCookie" value="@(context.Request.Headers.ContainsKey("cookie") ? context.Request.Headers["cookie"].First().Split(';').Select(cookie => cookie.Trim().Split('=')).SingleOrDefault(cookie => cookie[0] == "oidcsession")?[1] ?? string.Empty : string.Empty)" />
 	<choose>
-        <!-- No cookie - redirect to the sign-in endpoint -->
+		<!-- No cookie - redirect to the sign-in endpoint -->
 		<when condition="@(context.Variables["incomingFullSessionCookie"] == string.Empty)">
 			<return-response>
 				<set-status code="302" />
@@ -17,16 +17,16 @@
 				</set-header>
 			</return-response>
 		</when>
-        <!-- Cookie not the right format - redirect to the sign-in endpoint -->
+		<!-- Cookie not the right format - redirect to the sign-in endpoint -->
 		<when condition="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.').Length != 3)">
 			<return-response>
 				<set-status code="401" reason="Incorrect formed cookie" />
 			</return-response>
 		</when>
 	</choose>
-    <!-- The cookies second part has the key to the cache where we have stored the tokens / refresh times -->
+	<!-- The cookies second part has the key to the cache where we have stored the tokens / refresh times -->
 	<set-variable name="cacheKey" value="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.')[0])" />
-    <!-- The cookies expiry date is the 2nd part of the cookie -->
+	<!-- The cookies expiry date is the 2nd part of the cookie -->
 	<set-variable name="expires-at" value="@(long.Parse(((string)context.Variables["incomingFullSessionCookie"]).Split('.')[1]))" />
 	<choose>
 		<!-- If the cookie has expired, redirect to the signin-page -->
@@ -39,8 +39,7 @@
 			</return-response>
 		</when>
 	</choose>
-
-    <!-- Cookie has passed the 1st check. Now check the signature to ensure we issued it -->
+	<!-- Cookie has passed the 1st check. Now check the signature to ensure we issued it -->
 	<set-variable name="signature" value="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.')[2].Replace("_", "="))" />
 	<set-variable name="actualSignature" value="@(Convert.ToBase64String(new System.Security.Cryptography.HMACSHA512(Convert.FromBase64String("{{SessionCookieKey}}")).ComputeHash(Encoding.UTF8.GetBytes($"{context.Variables["cacheKey"]}.{context.Variables["expires-at"]}"))))" />
 	<choose>
@@ -60,6 +59,18 @@
 	<cache-lookup-value key="@($"tokens-{context.Variables["cacheKey"]}-idToken")" default-value="" variable-name="encryptedIdToken" />
 	<cache-lookup-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshAt")" default-value="" variable-name="refreshAt" />
 
+	<choose>
+		<!-- If we've lost any of these tokens then just redirect back to the sign-in endpoint -->
+		<when condition="@((string)context.Variables["encryptedAccessToken"] == "" || (string)context.Variables["encryptedIdToken"] == ""  || (long)context.Variables["refreshAt"] == 0 )">
+			<return-response>
+				<set-status code="302" />
+				<set-header name="Location" exists-action="override">
+					<value>@($"/oauth/signin?redirect={Uri.EscapeDataString(context.Request.OriginalUrl.ToString())}")</value>
+				</set-header>
+			</return-response>
+		</when>
+	</choose>
+
 	<!-- decrypt and turn back into a JObject -->
 	<set-variable name="accessToken" value="@{
 		var token = Convert.FromBase64String(((string)context.Variables["encryptedAccessToken"]));
@@ -78,15 +89,29 @@
         return Encoding.UTF8.GetString(decryptedBytes);
 	}" />
 
-
 	<choose>
 		<!-- Check the current date against when we want to refresh the token. This is about half of the tokens lifetime (so we don't miss our chance to refresh) -->
 		<when condition="@(DateTimeOffset.UtcNow > DateTimeOffset.FromUnixTimeSeconds((long)context.Variables["refreshAt"]))">
-            <!-- If it's time to refresh then post to AAD to get new tokens -->
+			<!-- If it's time to refresh then post to AAD to get new tokens -->
 			<cache-lookup-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" default-value="" variable-name="refreshToken" />
-        	<set-variable name="tokenRefreshData" value="@($"client_id={{ClientId}}&scope={Uri.EscapeDataString(((string)context.Variables["access_token"]).AsJwt().Claims.GetValueOrDefault("scp", ""))}&refresh_token={(string)context.Variables["refreshToken"]}&grant_type=refresh_token&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}")" />
+
+            <choose>
+                <!-- If we've lost our fresh token then we'll have to redirect to the sign-in -->
+                <when condition="@( (string)context.Variables["refreshToken"] == "" )">
+                    <return-response>
+                        <set-status code="302" />
+                        <set-header name="Location" exists-action="override">
+                            <value>@($"/oauth/signin?redirect={Uri.EscapeDataString(context.Request.OriginalUrl.ToString())}")</value>
+                        </set-header>
+                    </return-response>
+                </when>
+            </choose>
+
+			<set-variable name="tokenRefreshData" value="@($"client_id={{ClientId}}&scope={Uri.EscapeDataString(((string)context.Variables["accessToken"]).AsJwt().Claims.GetValueOrDefault("scp", ""))}&refresh_token={(string)context.Variables["refreshToken"]}&grant_type=refresh_token&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}")" />
+			<include-fragment fragment-id="oauth-proxy-token-endpoint" />
+
 			<send-request mode="new" response-variable-name="tokens" timeout="60" ignore-error="false">
-				<set-url>https://login.microsoftonline.com/{{TenantId}}/oauth2/v2.0/token</set-url>
+				<set-url>@((string)context.Variables["idpTokenEndpoint"])</set-url>
 				<set-method>POST</set-method>
 				<set-header name="Content-Type" exists-action="override">
 					<value>application/x-www-form-urlencoded</value>
@@ -106,47 +131,43 @@
 						</set-header>
 					</return-response>
 				</when>
-                <otherwise>
-
-                    <!-- update the access_token variable with the new token -->
-                    <set-variable name="tokenResponse" value="@(((IResponse)context.Variables["tokens"]).Body.As<JObject>())" />
-
+				<otherwise>
+					<!-- update the access_token variable with the new token -->
+					<set-variable name="tokenResponse" value="@(((IResponse)context.Variables["tokens"]).Body.As<JObject>())" />
 					<!-- Find when the tokens expire. We'll make the tokens in the cache drop out at this time -->
 					<set-variable name="refreshTime" value="@((int)((JObject)context.Variables["tokenResponse"])["expires_in"])" />
 					<set-variable name="accessToken" value="@( ((JObject)context.Variables["tokenResponse"])["access_token"].ToString())" />
 					<set-variable name="refreshToken" value="@( ((JObject)context.Variables["tokenResponse"])["refresh_token"].ToString())" />
 					<set-variable name="idtoken" value="@( ((JObject)context.Variables["tokenResponse"])["id_token"].ToString())" />
-
-                        <!-- Encrypt the tokenResponse variable, and store that in cache. We'll handle the refresh token separately as it lasts longer -->
-                        <set-variable name="encryptedAccessToken" value="@{
+					<!-- Encrypt the tokenResponse variable, and store that in cache. We'll handle the refresh token separately as it lasts longer -->
+					<set-variable name="encryptedAccessToken" value="@{
                             var token = Encoding.UTF8.GetBytes((string)context.Variables["accessToken"]);
                             var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
                             var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
                             var encryptedCookie = token.Encrypt("Aes", key, iv);
                             return Convert.ToBase64String(encryptedCookie);
                         }" />
-                        <set-variable name="encryptedIdToken" value="@{
+					<set-variable name="encryptedIdToken" value="@{
                             var token = Encoding.UTF8.GetBytes((string)context.Variables["idtoken"]);
                             var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
                             var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
                             var encryptedCookie = token.Encrypt("Aes", key, iv);
                             return Convert.ToBase64String(encryptedCookie);
                         }" />
-                        <!-- Store the encrypted token in the cache. -->
-                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-accessToken")" value="@((string)context.Variables["encryptedAccessToken"])" duration="@((int)context.Variables["refreshTime"])" />
-                        <!-- Store the encrypted token in the cache. -->
-                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-idToken")" value="@((string)context.Variables["encryptedIdToken"])" duration="@((int)context.Variables["refreshTime"])" />
-                        <!-- Store another refresh time... We'll refresh the tokens half way to their expiry date. Try to avoid last minute timing errors -->
-                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshAt")" value="@(DateTimeOffset.UtcNow.AddSeconds((int)context.Variables["refreshTime"] / 2).ToUnixTimeSeconds())" duration="@((int)context.Variables["refreshTime"])" />
-                        <!-- Store the refresh token separately. We probably want to cache it for longer than the token (avg user session length is a good idea) -->
-                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" value="@((string)context.Variables["refreshToken"])" duration="{{RefreshTokenExpirationInSeconds}}" />
-
-                </otherwise>
+					<!-- Store the encrypted token in the cache. -->
+					<cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-accessToken")" value="@((string)context.Variables["encryptedAccessToken"])" duration="@((int)context.Variables["refreshTime"])" />
+					<!-- Store the encrypted token in the cache. -->
+					<cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-idToken")" value="@((string)context.Variables["encryptedIdToken"])" duration="@((int)context.Variables["refreshTime"])" />
+					<!-- Store another refresh time... We'll refresh the tokens half way to their expiry date. Try to avoid last minute timing errors -->
+					<cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshAt")" value="@(DateTimeOffset.UtcNow.AddSeconds((int)context.Variables["refreshTime"] / 2).ToUnixTimeSeconds())" duration="@((int)context.Variables["refreshTime"])" />
+					<!-- Store the refresh token separately. We probably want to cache it for longer than the token (avg user session length is a good idea) -->
+					<cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" value="@((string)context.Variables["refreshToken"])" duration="{{RefreshTokenExpirationInSeconds}}" />
+				</otherwise>
 			</choose>
 		</when>
 	</choose>
-    <!-- Add the access token to the request (change this to pass whatever you need onwards) -->
-    <set-header name="Authorization" exists-action="override">
-        <value>@($"Bearer {(string)context.Variables["accessToken"]}")</value>
-    </set-header>
+	<!-- Add the access token to the request (change this to pass whatever you need onwards) -->
+	<set-header name="Authorization" exists-action="override">
+		<value>@($"Bearer {(string)context.Variables["accessToken"]}")</value>
+	</set-header>
 </fragment>

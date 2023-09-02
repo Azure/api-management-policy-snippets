@@ -1,0 +1,7 @@
+<fragment>
+	<!-- Returns a URL identifying the token endpoint of your IdP -->
+    <set-variable name="idpTokenEndpoint" value="@{
+        return $"https://login.microsoftonline.com/{{TenantId}}/oauth2/v2.0/token";
+    }" />
+
+</fragment>
