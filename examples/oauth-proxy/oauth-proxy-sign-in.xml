@@ -1,9 +1,8 @@
 <policies>
     <inbound>
-        <!-- Check if we already got a session cookie? If they do and it is fine then we don't want to kick-off a flow as we might end up in a redirect spin -->
         <set-variable name="redirect" value="@(Uri.UnescapeDataString(context.Request.Url.Query.GetValueOrDefault("redirect", string.Empty)))" />
         <choose>
-            <!-- Without a redirec we don't know where to send them back to. Error out the flow -->
+            <!-- Without a redirect we don't know where to send them back to. Error out the flow -->
             <when condition="@(context.Variables["redirect"] == string.Empty)">
                 <return-response>
                     <set-status code="400" reason="Bad Request" />

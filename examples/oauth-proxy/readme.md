@@ -5,12 +5,13 @@ The policies in this folder provide support for an OAuth Proxy similar that work
 ## Policies
 | Policy Name | Purpose | How to use |
 | -- | -- | -- |
-| [aad-token-endpoint-fragment.xml](aad-token-endpoint-fragment.xml) | Identifies the token endpoint to obtains tokens from | Deploy as a fragment named ```oauth-proxy-token-endpoint```. You **must** include this fragment above the ```<session-check-fragment>``` as it sets a required variable  (you cannot nest fragments in Azure API Management)  |
-| [session-check-fragment.xml](session-check-fragment.xml) | A fragment that checks for a Session cookie, and either initiate a sign-in flow, or attaches valid tokens to the ongoing request. This will refresh tokens if necessary | Deploy as a fragment named ```oauth-proxy-session-fragment```, and wrap it around the ```<inbound>``` policy of any Web Apps you want to protect with a session cookie |
-| [sign-in.xml](sign-in.xml) | Initiates a front-channel code / pkce flow with an IdP  | Configure this as the 'sign-in' operation within an API called 'OAuth' |
-| [aad-authorization-request-fragment.xml](aad-authorization-request-fragment.xml) | A fragment that constructs an OIDC Authorize request to your endpoint | Deploy as a fragment named ```oauth-proxy-construct-authorization-redirect```. If using a different IdP, use the ```aad-authorization-request-fragment.xml``` as a guide to configuring for your IdP |
-| [callback.xml](callback.xml) | Handles an IdP's callback in response to a sign-in request  | Configure this as the 'callback' operation within an API called 'OAuth' |
-| [sliding-session-cookie-fragment.xml](sliding-session-cookie-fragment.xml) | A fragment that slides any issued session cookie | Deploy as a fragment named ```oauth-proxy-slide-session-fragment```, and wrap it around the ```<outbound>``` policy of any Web Apps you want to protect with a session cookie |
+| [oauth-proxy-token-endpoint.xml](oauth-proxy-token-endpoint.xml) | Identifies the token endpoint to obtains tokens from | Deploy as a fragment named ```oauth-proxy-token-endpoint```. You **must** include this fragment above the ```<session-check-fragment>``` as it sets a required variable  (you cannot nest fragments in Azure API Management)  |
+| [oauth-proxy-session-fragment.xml](oauth-proxy-session-fragment.xml) | A fragment that checks for a Session cookie, and either initiate a sign-in flow, or attaches valid tokens to the ongoing request. This will refresh tokens if necessary | Deploy as a fragment named ```oauth-proxy-session-fragment```, and wrap it around the ```<inbound>``` policy of any Web Apps you want to protect with a session cookie |
+| [oauth-proxy-sign-in.xml](oauth-proxy-sign-in.xml) | Initiates a front-channel code / pkce flow with an IdP  | Configure this as the 'signin' operation within an API called 'OAuth' |
+| [oauth-proxy-construct-authorization-redirect.xml](oauth-proxy-construct-authorization-redirect.xml) | A fragment that constructs an OIDC Authorize request to your endpoint | Deploy as a fragment named ```oauth-proxy-construct-authorization-redirect```. If using a different IdP, use ```oauth-proxy-construct-authorization-redirect.xml``` as a guide to configuring for your IdP |
+| [oauth-proxy-callback.xml](oauth-proxy-callback.xml) | Handles an IdP's callback in response to a sign-in request  | Configure this as the 'callback' operation within an API called 'OAuth' |
+| [oauth-proxy-slide-session-fragment.xml](oauth-proxy-slide-session-fragment.xml) | A fragment that slides any issued session cookie | Deploy as a fragment named ```oauth-proxy-slide-session-fragment```, and wrap it around the ```<outbound>``` policy of any Web Apps you want to protect with a session cookie |
+| [oauth-proxy-sign-out.xml](oauth-proxy-sign-out.xml) | Clears a user's session cookie, and removes all token data from the cache.  | Configure this as the 'signout' operation within an API called 'OAuth' |
 
 ### Required Named Values
 
@@ -58,7 +59,7 @@ The policies in this folder provide support for an OAuth Proxy similar that work
 ```
 
 ## Session Check fragment
-> Implemented by [session-check.xml](./session-check.xml)
+> Implemented by [oauth-proxy-session-fragment.xml](./oauth-proxy-session-fragment.xml)
 
 ### Purpose
 This fragment is intended to sit at a high-level around any calls you need to protect.
@@ -71,7 +72,7 @@ It checks for an incoming session-cookie and either
 
 
 ## /oauth/signin
-> Implemented by [sign-in.xml](./sign-in.xml)
+> Implemented by [oauth-proxy-sign-in.xml](./oauth-proxy-sign-in.xml)
 
 ### Purpose
 This policy initiates an OIDC 3-legged sign-in flow.
@@ -85,10 +86,10 @@ This policy initiates an OIDC 3-legged sign-in flow.
 | redirect | Fully qualified URL to redirect to after a successful sign-in flow |
 
 ## Authorization Request Fragment (sample for AAD)
-> Implemented by [aad-authorization-request-fragment.xml](./aad-authorization-request-fragment.xml)
+> Implemented by [oauth-proxy-construct-authorization-redirect.xml](./oauth-proxy-construct-authorization-redirect.xml)
 
 ### Purpose
-This fragment must be called ```oauth-proxy-construct-authorization-redirect``` and creates a valid URI to redirect a User to an IdP to initiate a sign-in.
+This fragment must be called ```oauth-proxy-construct-authorization-redirect``` and must assign a valid URI to the ```oauth-proxy-redirect``` variable that will redirect a User to an IdP to initiate a sign-in.
 
 The following variables are set by the ```sign-in.xml``` policy to use here:
 - state
@@ -99,7 +100,7 @@ This fragment must set a variable called ```oauth-proxy-redirect``` which initia
 
 
 ## /oauth/callback
-> Implemented by [sign-in.xml](./sign-in.xml)
+> Implemented by [oauth-proxy-callback.xml](./oauth-proxy-callback.xml)
 
 ### Purpose
 This policy handles a callback from an IdP to complete an OIDC flow.
@@ -118,7 +119,7 @@ This policy handles a callback from an IdP to complete an OIDC flow.
 
 
 ## Authorization Token Endpoint fragment (sample for AAD)
-> Implemented by [aad-authorization-request-fragment.xml](./aad-authorization-request-fragment.xml)
+> Implemented by [oauth-proxy-token-endpoint-fragment.xml](./oauth-proxy-token-endpoint-fragment.xml)
 
 ### Purpose
 This fragment must be created as ```oauth-proxy-token-endpoint``` and creates a valid URI that where we can exchange a code for a token.
@@ -126,11 +127,24 @@ This fragment must be created as ```oauth-proxy-token-endpoint``` and creates a 
 This fragment must set a variable called ```idpTokenEndpoint``` where we can POST to.
 
 ## Sliding Session Cookie fragment
-> Implemented by [sliding-session-cookie-fragment.xml](sliding-session-cookie-fragment.xml)
+> Implemented by [oauth-proxy-slide-session-fragment.xml](oauth-proxy-slide-session-fragment.xml)
 
 ### Purpose
-An Outbound processing fragment that slides the session cookie associated with the session. Use it at the same level as the above Session check fragment
+An Outbound processing fragment that slides the session cookie associated with the session. Use it at the same API scope as the above Session check fragment.
 
 ### Steps
 - Issues a new session cookie on all requests, which slides forward to ```UtcNow + SessionCookieExpirationInSeconds```
 
+
+## /oauth/signout
+> Implemented by [oauth-proxy-signout.xml](./oauth-proxy-signout.xml)
+
+### Purpose
+This policy performs a User 'sign-out'. It removes the session cookies, and also removes all tokens from cache.
+
+### Steps
+- Clears all cached tokens
+- Clears the session cookie
+- Redirects the user to the provided redirect parameter (returns a 200 OK if no, or invalid redirect).
+
+NB: This does not invalidate the access tokens. If any API cached the token it will still be valid until its expiry date.

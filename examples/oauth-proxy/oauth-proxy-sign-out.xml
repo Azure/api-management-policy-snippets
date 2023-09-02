@@ -1,0 +1,74 @@
+<policies>
+    <inbound>
+        <!-- Grab the incoming session cookie -->
+        <set-variable name="incomingFullSessionCookie" value="@(context.Request.Headers.ContainsKey("cookie") ? context.Request.Headers["cookie"].First().Split(';').Select(cookie => cookie.Trim().Split('=')).SingleOrDefault(cookie => cookie[0] == "oidcsession")?[1] ?? string.Empty : string.Empty)" />
+        <choose>
+            <!-- No cookie - redirect to the sign-in endpoint -->
+            <when condition="@(context.Variables["incomingFullSessionCookie"] == string.Empty)">
+                <return-response>
+                    <set-status code="302" />
+                    <set-header name="Location" exists-action="override">
+                        <value>@($"/oauth/signin?redirect={Uri.EscapeDataString(context.Request.OriginalUrl.ToString())}")</value>
+                    </set-header>
+                </return-response>
+            </when>
+            <!-- Cookie not the right format - redirect to the sign-in endpoint -->
+            <when condition="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.').Length != 3)">
+                <return-response>
+                    <set-status code="401" reason="Incorrect formed cookie" />
+                </return-response>
+            </when>
+        </choose>
+        <!-- clear out the cookies / state / etc and redirect them back to where they came from-->
+        <set-variable name="cacheKey" value="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.')[0])" />
+        <cache-remove-value key="@($"tokens-{context.Variables["cacheKey"]}-accessToken")" />
+        <cache-remove-value key="@($"tokens-{context.Variables["cacheKey"]}-idToken")" />
+        <cache-remove-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" />
+        <cache-remove-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshAt")" />
+        <!-- Grab the incoming session cookie -->
+        <set-variable name="redirect" value="@(Uri.UnescapeDataString(context.Request.Url.Query.GetValueOrDefault("redirect", string.Empty)))" />
+        <choose>
+            <!-- Without a redirect we don't know where to send them back to. Error out the flow -->
+            <when condition="@(context.Variables["redirect"] == string.Empty)">
+                <return-response>
+                    <set-status code="200" reason="OK" />
+                    <set-header name="Set-Cookie" exists-action="override">
+                        <value>@($"oidcsession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                    </set-header>
+                    <set-body />
+                </return-response>
+            </when>
+            <!-- Check if the redirect is to one of the oauth endpoints. This would create a redirect loop. Let's not allow this -->
+            <when condition="@(new Uri((string)context.Variables["redirect"]).AbsolutePath.StartsWith("/oauth", StringComparison.InvariantCultureIgnoreCase))">
+                <return-response>
+                    <set-status code="200" reason="OK" />
+                    <set-header name="Set-Cookie" exists-action="override">
+                        <value>@($"oidcsession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                    </set-header>
+                    <set-body />
+                </return-response>
+            </when>
+            <otherwise>
+                <return-response>
+                    <set-status code="302" reason="OK" />
+                    <set-header name="Location" exists-action="override">
+                        <value>@((string)context.Variables["redirect"])</value>
+                    </set-header>
+                    <set-header name="Set-Cookie" exists-action="override">
+                        <value>@($"oidcsession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                    </set-header>
+                </return-response>
+            </otherwise>
+        </choose>
+        <base />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
