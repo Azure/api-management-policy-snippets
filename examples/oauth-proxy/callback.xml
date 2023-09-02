@@ -5,14 +5,14 @@
         <!-- Get the state from the incoming form post. -->
         <set-variable name="state" value="@(context.Request.Body.AsFormUrlEncodedContent()["state"].Single())" />
         <!-- Grab the cookie that comes in. The state should match that of the cookie. -->
-        <set-variable name="incomingCookie" value="@(context.Request.Headers["cookie"].Single().Split(';').Select(cookie => cookie.Trim().Split('=')).Single(cookie => cookie[0] == $"oidc-{(string)context.Variables["state"]}")[1])" />
+        <set-variable name="cacheKey" value="@(context.Request.Headers["cookie"].Single().Split(';').Select(cookie => cookie.Trim().Split('=')).Single(cookie => cookie[0] == $"oidc-{(string)context.Variables["state"]}")[1])" />
         <!-- get the state and the nonce so we can check them against the token we exchange for -->
-        <cache-lookup-value key="@($"signin-{context.Variables["incomingCookie"]}-state")" default-value="" variable-name="expected-state" />
-        <cache-lookup-value key="@($"signin-{context.Variables["incomingCookie"]}-nonce")" default-value="" variable-name="expected-nonce" />
-        <cache-lookup-value key="@($"signin-{context.Variables["incomingCookie"]}-code-challenge")" default-value="" variable-name="code-challenge" />
-        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-state")" />
-        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-nonce")" />
-        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-code-challenge")" />
+        <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-state")" default-value="" variable-name="expected-state" />
+        <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-nonce")" default-value="" variable-name="expected-nonce" />
+        <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-code-challenge")" default-value="" variable-name="code-challenge" />
+        <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-state")" />
+        <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-nonce")" />
+        <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-code-challenge")" />
         <choose>
             <when condition="@((string)context.Variables["expected-state"] == string.Empty)">
                 <!-- Couldn't find a matching state variable. Error the callback. -->
@@ -29,7 +29,6 @@
             <when condition="@((string)context.Variables["expected-state"] != "")">
                 <!-- Get a backchannel call ready to switch the code for the token -->
                 <set-variable name="tokenData" value="@($"client_id={{ClientId}}&scope=openid&code={(string)context.Variables["code"]}&redirect_uri=https://{context.Request.OriginalUrl.Host}%2Foauth%2Fcallback&grant_type=authorization_code&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}&code_verifier={(string)context.Variables["code-challenge"]}")" />
-
                 <!-- Backchannel call to get the tokens -->
                 <send-request mode="new" response-variable-name="tokens" timeout="60" ignore-error="false">
                     <set-url>https://login.microsoftonline.com/{{TenantId}}/oauth2/v2.0/token</set-url>
@@ -39,7 +38,6 @@
                     </set-header>
                     <set-body>@((string)context.Variables["tokenData"])</set-body>
                 </send-request>
-
                 <choose>
                     <when condition="@(((IResponse)context.Variables["tokens"]).StatusCode != 200)">
                         <return-response>
@@ -50,7 +48,6 @@
                         </return-response>
                     </when>
                 </choose>
-
                 <set-variable name="tokenResponse" value="@(((IResponse)context.Variables["tokens"]).Body.As<JObject>())" />
                 <!-- check the nonce matches the one in the cookie. Then we know this token is in response to the original request -->
                 <set-variable name="idToken" value="@((string)((JObject)context.Variables["tokenResponse"] )["id_token"])" />
@@ -60,26 +57,40 @@
                 <choose>
                     <!-- Check the nonce matches the one we stoerd in cache -->
                     <when condition="@((string)context.Variables["expected-nonce"] == (string)context.Variables["idTokenNonce"])">
+
                         <!-- Find when the tokens expire. We'll make the tokens in the cache drop out at this time -->
                         <set-variable name="refreshTime" value="@((int)((JObject)context.Variables["tokenResponse"])["expires_in"])" />
+                        <set-variable name="accessToken" value="@( ((JObject)context.Variables["tokenResponse"])["access_token"].ToString())" />
+                        <set-variable name="refreshToken" value="@( ((JObject)context.Variables["tokenResponse"])["refresh_token"].ToString())" />
+                        <set-variable name="idtoken" value="@( ((JObject)context.Variables["tokenResponse"])["id_token"].ToString())" />
 
-                        <!-- Encrypt the tokenResponse variable, and store that in cache -->                        
-                        <set-variable name="encryptedToken" value="@{
-                            var token = Encoding.UTF8.GetBytes(((JObject)context.Variables["tokenResponse"]).ToString());
-                            var iv = Guid.Parse((string)context.Variables["incomingCookie"]).ToByteArray();
+                        <!-- Encrypt the tokenResponse variable, and store that in cache. We'll handle the refresh token separately as it lasts longer -->
+                        <set-variable name="encryptedAccessToken" value="@{
+                            var token = Encoding.UTF8.GetBytes((string)context.Variables["accessToken"]);
+                            var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
                             var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
-                            var encryptedCookie = token.Encrypt("Aes", key, iv);
-                            return Convert.ToBase64String(encryptedCookie);
+                            var encryptedToken = token.Encrypt("Aes", key, iv);
+                            return Convert.ToBase64String(encryptedToken);
                         }" />
-
+                        <set-variable name="encryptedIdToken" value="@{
+                            var token = Encoding.UTF8.GetBytes((string)context.Variables["idtoken"]);
+                            var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
+                            var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
+                            var encryptedToken = token.Encrypt("Aes", key, iv);
+                            return Convert.ToBase64String(encryptedToken);
+                        }" />
                         <!-- Store the encrypted token in the cache. -->
-                        <cache-store-value key="@($"tokens-{context.Variables["incomingCookie"]}")" value="@((string)context.Variables["encryptedToken"])" duration="@((int)context.Variables["refreshTime"])" />
+                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-accessToken")" value="@((string)context.Variables["encryptedAccessToken"])" duration="@((int)context.Variables["refreshTime"])" />
+                        <!-- Store the encrypted token in the cache. -->
+                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-idToken")" value="@((string)context.Variables["encryptedIdToken"])" duration="@((int)context.Variables["refreshTime"])" />
                         <!-- Store another refresh time... We'll refresh the tokens half way to their expiry date. Try to avoid last minute timing errors -->
-                        <cache-store-value key="@($"tokens-{context.Variables["incomingCookie"]}-refreshAt")" value="@(DateTimeOffset.UtcNow.AddSeconds((int)context.Variables["refreshTime"] / 2).ToUnixTimeSeconds())" duration="@((int)context.Variables["refreshTime"])" />
+                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshAt")" value="@(DateTimeOffset.UtcNow.AddSeconds((int)context.Variables["refreshTime"] / 2).ToUnixTimeSeconds())" duration="@((int)context.Variables["refreshTime"])" />
+                        <!-- Store the refresh token separately. We probably want to cache it for longer than the token (avg user session length is a good idea) -->
+                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" value="@((string)context.Variables["refreshToken"])" duration="{{RefreshTokenExpirationInSeconds}}" />
 
                         <!-- Make the cookie tamper-proof by adding a signature alongside its expiry date -->
                         <set-variable name="cookie-expiry" value="@(DateTimeOffset.UtcNow.AddSeconds({{SessionCookieExpirationInSeconds}}).ToUnixTimeMilliseconds())" />
-                        <set-variable name="cookie-prefix" value="@($"{(string)context.Variables["incomingCookie"]}.{(long)context.Variables["cookie-expiry"]}")" />
+                        <set-variable name="cookie-prefix" value="@($"{(string)context.Variables["cacheKey"]}.{(long)context.Variables["cookie-expiry"]}")" />
                         <set-variable name="cookie-signature" value="@(Convert.ToBase64String(new System.Security.Cryptography.HMACSHA512(Convert.FromBase64String("{{SessionCookieKey}}")).ComputeHash(Encoding.UTF8.GetBytes((string)context.Variables["cookie-prefix"]))).Replace("=", "_"))" />
 
                         <return-response>
@@ -132,8 +143,8 @@
         <set-header name="Set-Cookie" exists-action="override">
             <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
         </set-header>
-        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-state")" />
-        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-nonce")" />
-        <cache-remove-value key="@($"signin-{context.Variables["incomingCookie"]}-code-challenge")" />
+        <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-state")" />
+        <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-nonce")" />
+        <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-code-challenge")" />
     </on-error>
 </policies>

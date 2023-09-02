@@ -14,6 +14,7 @@ The 4 policies fulfill different parts of the flow. I recommend setting up an AP
 | SessionCookieKey | A Base 64 Encoded string representing a 128 random byte array. Used to sign cookies to check their validity |
 | TokenEncryptionKey | A Base 64 Encoded string of 32 random bytes, used as the Key for an AES 256 encryption algorithm for encrypting tokens at rest |
 | SessionCookieExpirationInSeconds | How long to allow session cookies to stay active for |
+| RefreshTokenExpirationInSeconds | How long to cache refresh tokens for (a good guide would be how long your average user's session lasts for) |
 
 > You can generate the Base 64 random bytes in dotnet using ``` Convert.ToBase64String(RandomNumberGenerator.GetBytes(<size>)) ```
 
