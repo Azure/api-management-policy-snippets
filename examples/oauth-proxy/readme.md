@@ -42,6 +42,7 @@ The policies in this folder provide support for an OAuth Proxy similar that work
     <inbound>
         <include-fragment fragment-id="oauth-proxy-token-endpoint" />
         <include-fragment fragment-id="oauth-proxy-session-fragment" />
+        <!-- Sets Header: Authorization Bearer {access-token} and Header: x-proxy-id-token {id-token} to the downstream request -->
         <base />
     </inbound>
     <backend>
@@ -52,6 +53,7 @@ The policies in this folder provide support for an OAuth Proxy similar that work
         <base />
     </outbound>
     <on-error>
+        <include-fragment fragment-id="oauth-proxy-slide-session-fragment" />
         <base />
     </on-error>
 </policies>
