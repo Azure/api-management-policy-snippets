@@ -1,6 +1,6 @@
 # OAuth Proxy Azure API Management policies
 
-The policies in this folder provide support for an OAuth Proxy similar that works in a similar way to App Service Authentication.
+The policies in this folder provide support for an OAuth Proxy that works in a similar way to App Service Authentication.
 
 ## Policies
 | Policy Name | Purpose | How to use |
@@ -26,7 +26,7 @@ The policies in this folder provide support for an OAuth Proxy similar that work
 
 > You can generate the Base 64 random bytes in dotnet using ``` Convert.ToBase64String(RandomNumberGenerator.GetBytes(<size>)) ```
 
-### Required Named Values for the ```aad-authorization-request-fragment```
+### Required Named Values for the ```oauth-proxy-construct-authorization-redirect```
 
 | Named Value | Purpose |
 | -- | -- | 
