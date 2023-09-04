@@ -42,7 +42,14 @@ The policies in this folder provide support for an OAuth Proxy similar that work
     <inbound>
         <include-fragment fragment-id="oauth-proxy-token-endpoint" />
         <include-fragment fragment-id="oauth-proxy-session-fragment" />
-        <!-- Sets Header: Authorization Bearer {access-token} and Header: x-proxy-id-token {id-token} to the downstream request -->
+        <!-- Adds the following headers: 
+            
+            Authorization: Bearer {access-token}
+            x-proxy-id-token: {id-token} 
+            x-proxy-id-token-name: {id-token name claim}
+            x-proxy-id-token-preferred-username: {id-token preferred-username claim}
+
+            to the downstream request -->
         <base />
     </inbound>
     <backend>
