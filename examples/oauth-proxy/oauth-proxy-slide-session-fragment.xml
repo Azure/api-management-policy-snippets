@@ -1,7 +1,7 @@
 <fragment>
 	<!-- slide the cookie -->
     <set-variable name="cookie-expiry" value="@(DateTimeOffset.UtcNow.AddSeconds({{SessionCookieExpirationInSeconds}}).ToUnixTimeMilliseconds())" />
-	<set-variable name="cookie-prefix" value="@($"{(string)context.Variables["cacheKey"]}.{(long)context.Variables["cookie-expiry"]}")" />
+	<set-variable name="cookie-prefix" value="@($"{(string)context.Variables["cacheKey"]}.{(string)context.Variables["ivString"]}.{(long)context.Variables["cookie-expiry"]}")" />
 	<set-variable name="cookie-signature" value="@(Convert.ToBase64String(new System.Security.Cryptography.HMACSHA512(Convert.FromBase64String("{{SessionCookieKey}}")).ComputeHash(Encoding.UTF8.GetBytes((string)context.Variables["cookie-prefix"]))).Replace("=", "_"))" />
 	<set-header name="Set-Cookie" exists-action="override">
         <value>@($"oidcsession={(string)context.Variables["cookie-prefix"]}.{(string)context.Variables["cookie-signature"]}; SameSite=Lax; Path=/; Secure; Expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}")</value>

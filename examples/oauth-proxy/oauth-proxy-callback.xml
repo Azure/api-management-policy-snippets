@@ -67,17 +67,20 @@
                         <set-variable name="refreshToken" value="@( ((JObject)context.Variables["tokenResponse"])["refresh_token"].ToString())" />
                         <set-variable name="idtoken" value="@( ((JObject)context.Variables["tokenResponse"])["id_token"].ToString())" />
 
+                        <!-- create the IV used in encrypting the tokens. We don't store this server side. Just flows in cookies -->
+                        <set-variable name="ivString" value="@(Guid.NewGuid().ToString())" />
+
                         <!-- Encrypt the tokenResponse variable, and store that in cache. We'll handle the refresh token separately as it lasts longer -->
                         <set-variable name="encryptedAccessToken" value="@{
                             var token = Encoding.UTF8.GetBytes((string)context.Variables["accessToken"]);
-                            var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
+                            var iv = Guid.Parse((string)context.Variables["ivString"]).ToByteArray();
                             var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
                             var encryptedToken = token.Encrypt("Aes", key, iv);
                             return Convert.ToBase64String(encryptedToken);
                         }" />
                         <set-variable name="encryptedIdToken" value="@{
                             var token = Encoding.UTF8.GetBytes((string)context.Variables["idtoken"]);
-                            var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
+                            var iv = Guid.Parse((string)context.Variables["ivString"]).ToByteArray();
                             var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
                             var encryptedToken = token.Encrypt("Aes", key, iv);
                             return Convert.ToBase64String(encryptedToken);
@@ -93,7 +96,7 @@
 
                         <!-- Make the cookie tamper-proof by adding a signature alongside its expiry date -->
                         <set-variable name="cookie-expiry" value="@(DateTimeOffset.UtcNow.AddSeconds({{SessionCookieExpirationInSeconds}}).ToUnixTimeMilliseconds())" />
-                        <set-variable name="cookie-prefix" value="@($"{(string)context.Variables["cacheKey"]}.{(long)context.Variables["cookie-expiry"]}")" />
+                        <set-variable name="cookie-prefix" value="@($"{(string)context.Variables["cacheKey"]}.{(string)context.Variables["ivString"]}.{(long)context.Variables["cookie-expiry"]}")" />
                         <set-variable name="cookie-signature" value="@(Convert.ToBase64String(new System.Security.Cryptography.HMACSHA512(Convert.FromBase64String("{{SessionCookieKey}}")).ComputeHash(Encoding.UTF8.GetBytes((string)context.Variables["cookie-prefix"]))).Replace("=", "_"))" />
 
                         <return-response>

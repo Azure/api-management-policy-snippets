@@ -18,7 +18,7 @@
 			</return-response>
 		</when>
 		<!-- Cookie not the right format - redirect to the sign-in endpoint -->
-		<when condition="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.').Length != 3)">
+		<when condition="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.').Length != 4)">
 			<return-response>
 				<set-status code="401" reason="Incorrect formed cookie" />
 			</return-response>
@@ -26,8 +26,9 @@
 	</choose>
 	<!-- The cookies second part has the key to the cache where we have stored the tokens / refresh times -->
 	<set-variable name="cacheKey" value="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.')[0])" />
+	<set-variable name="ivString" value="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.')[1])" />
 	<!-- The cookies expiry date is the 2nd part of the cookie -->
-	<set-variable name="expires-at" value="@(long.Parse(((string)context.Variables["incomingFullSessionCookie"]).Split('.')[1]))" />
+	<set-variable name="expires-at" value="@(long.Parse(((string)context.Variables["incomingFullSessionCookie"]).Split('.')[2]))" />
 	<choose>
 		<!-- If the cookie has expired, redirect to the signin-page -->
 		<when condition="@(DateTimeOffset.UtcNow > DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["expires-at"]))">
@@ -40,8 +41,8 @@
 		</when>
 	</choose>
 	<!-- Cookie has passed the 1st check. Now check the signature to ensure we issued it -->
-	<set-variable name="signature" value="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.')[2].Replace("_", "="))" />
-	<set-variable name="actualSignature" value="@(Convert.ToBase64String(new System.Security.Cryptography.HMACSHA512(Convert.FromBase64String("{{SessionCookieKey}}")).ComputeHash(Encoding.UTF8.GetBytes($"{context.Variables["cacheKey"]}.{context.Variables["expires-at"]}"))))" />
+	<set-variable name="signature" value="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.')[3].Replace("_", "="))" />
+	<set-variable name="actualSignature" value="@(Convert.ToBase64String(new System.Security.Cryptography.HMACSHA512(Convert.FromBase64String("{{SessionCookieKey}}")).ComputeHash(Encoding.UTF8.GetBytes($"{context.Variables["cacheKey"]}.{context.Variables["ivString"]}.{context.Variables["expires-at"]}"))))" />
 	<choose>
 		<!-- If it doesn't exist then redirect to the sign-in page -->
 		<when condition="@((string)context.Variables["actualSignature"] != (string)context.Variables["signature"])">
@@ -74,7 +75,7 @@
 	<!-- decrypt and turn back into a JObject -->
 	<set-variable name="accessToken" value="@{
 		var token = Convert.FromBase64String(((string)context.Variables["encryptedAccessToken"]));
-		var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
+		var iv = Guid.Parse((string)context.Variables["ivString"]).ToByteArray();
 		var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
 		var decryptedBytes = token.Decrypt("Aes", key, iv);
         return Encoding.UTF8.GetString(decryptedBytes);
@@ -83,7 +84,7 @@
 	<!-- decrypt and turn back into a JObject -->
 	<set-variable name="idToken" value="@{
 		var token = Convert.FromBase64String(((string)context.Variables["encryptedIdToken"]));
-		var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
+		var iv = Guid.Parse((string)context.Variables["ivString"]).ToByteArray();
 		var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
 		var decryptedBytes = token.Decrypt("Aes", key, iv);
         return Encoding.UTF8.GetString(decryptedBytes);
@@ -141,14 +142,14 @@
 					<!-- Encrypt the tokenResponse variable, and store that in cache. We'll handle the refresh token separately as it lasts longer -->
 					<set-variable name="encryptedAccessToken" value="@{
                             var token = Encoding.UTF8.GetBytes((string)context.Variables["accessToken"]);
-                            var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
+                            var iv = Guid.Parse((string)context.Variables["ivString"]).ToByteArray();
                             var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
                             var encryptedCookie = token.Encrypt("Aes", key, iv);
                             return Convert.ToBase64String(encryptedCookie);
                         }" />
 					<set-variable name="encryptedIdToken" value="@{
                             var token = Encoding.UTF8.GetBytes((string)context.Variables["idtoken"]);
-                            var iv = Guid.Parse((string)context.Variables["cacheKey"]).ToByteArray();
+                            var iv = Guid.Parse((string)context.Variables["ivString"]).ToByteArray();
                             var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
                             var encryptedCookie = token.Encrypt("Aes", key, iv);
                             return Convert.ToBase64String(encryptedCookie);
