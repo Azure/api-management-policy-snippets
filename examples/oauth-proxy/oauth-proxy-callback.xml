@@ -5,7 +5,7 @@
         <!-- Get the state from the incoming form post. -->
         <set-variable name="state" value="@(context.Request.Body.AsFormUrlEncodedContent()["state"].Single())" />
         <!-- Grab the cookie that comes in. The state should match that of the cookie. -->
-        <set-variable name="cacheKey" value="@(context.Request.Headers["cookie"].Single().Split(';').Select(cookie => cookie.Trim().Split('=')).Single(cookie => cookie[0] == $"oidc-{(string)context.Variables["state"]}")[1])" />
+        <set-variable name="cacheKey" value="@(context.Request.Headers["cookie"].Select(cookie => cookie.Trim().Split('=')).Single(cookie => cookie[0] == $"oidc-{(string)context.Variables["state"]}")[1])" />
         <!-- get the state and the nonce so we can check them against the token we exchange for -->
         <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-state")" default-value="" variable-name="expected-state" />
         <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-nonce")" default-value="" variable-name="expected-nonce" />
@@ -102,7 +102,8 @@
                                 <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                             </set-header>
                             <set-header name="Set-Cookie" exists-action="append">
-                                <value>@($"oidcsession={(string)context.Variables["cookie-prefix"]}.{(string)context.Variables["cookie-signature"]}; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}")</value>
+                                <!-- Strict or not? Keeping as default Lax for now -->
+                                <value>@($"oidcsession={(string)context.Variables["cookie-prefix"]}.{(string)context.Variables["cookie-signature"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}")</value>
                             </set-header>
                             <set-header name="Location" exists-action="override">
                                 <value>@((string)context.Variables["expected-state"])</value>

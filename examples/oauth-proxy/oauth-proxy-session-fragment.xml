@@ -6,7 +6,7 @@
 -->
 <fragment>
 	<!-- Grab the incoming session cookie -->
-	<set-variable name="incomingFullSessionCookie" value="@(context.Request.Headers.ContainsKey("cookie") ? context.Request.Headers["cookie"].First().Split(';').Select(cookie => cookie.Trim().Split('=')).SingleOrDefault(cookie => cookie[0] == "oidcsession")?[1] ?? string.Empty : string.Empty)" />
+	<set-variable name="incomingFullSessionCookie" value="@(context.Request.Headers.ContainsKey("cookie") ? context.Request.Headers["cookie"].Select(cookie => cookie.Trim().Split('=')).SingleOrDefault(cookie => cookie[0] == "oidcsession")?[1] ?? string.Empty : string.Empty)" />
 	<choose>
 		<!-- No cookie - redirect to the sign-in endpoint -->
 		<when condition="@(context.Variables["incomingFullSessionCookie"] == string.Empty)">
