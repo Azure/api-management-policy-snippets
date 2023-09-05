@@ -122,10 +122,10 @@ This policy handles a callback from an IdP to complete an OIDC flow.
 - If the state parameter in the querystring from the IdP matches the cookie, and was stored in our cache, then switch the code for a token using a PKCE code-
 - Check the nonce in the returned token matches the nonce stored in session
 - Return 401 if we cannot match the nonce
-- Encrypts the tokens using the Session-Id (IV), and the TokenEncryptionKey (Key) 
+- Creates an IV which is round-tripped in the session cookie (not stored server-side)
+- Encrypts the tokens using the above IV, and the TokenEncryptionKey (Key) 
 - Store the encrypted tokens in Redis
-- Set a session-cookie which comprises of our cache-key, the cookies expiry timestamp, and sign it using a HMAC-SHA-512 signature creating using the SessionCookieKey named value.
-
+- Set a session-cookie which comprises of our cache-key, the IV, the cookies expiry timestamp. Signs it using a HMAC-SHA-512 signature creating using the SessionCookieKey named value.
 
 ## Authorization Token Endpoint fragment (sample for AAD)
 > Implemented by [oauth-proxy-token-endpoint-fragment.xml](./oauth-proxy-token-endpoint-fragment.xml)
