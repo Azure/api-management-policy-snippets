@@ -28,7 +28,7 @@
             <!-- This proves that the callback is correlated to the original token request -->
             <when condition="@((string)context.Variables["expected-state"] != "")">
                 <!-- Get a backchannel call ready to switch the code for the token -->
-                <set-variable name="tokenData" value="@($"client_id={{ClientId}}&scope=openid&code={(string)context.Variables["code"]}&redirect_uri=https://{context.Request.OriginalUrl.Host}%2Foauth%2Fcallback&grant_type=authorization_code&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}&code_verifier={(string)context.Variables["code-challenge"]}")" />
+                <set-variable name="tokenData" value="@($"client_id={{ClientId}}&code={(string)context.Variables["code"]}&redirect_uri=https://{context.Request.OriginalUrl.Host}%2Foauth%2Fcallback&grant_type=authorization_code&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}&code_verifier={(string)context.Variables["code-challenge"]}")" />
 
                 <include-fragment fragment-id="oauth-proxy-token-endpoint" />
 

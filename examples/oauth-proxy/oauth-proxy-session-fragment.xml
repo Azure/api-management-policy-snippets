@@ -114,7 +114,7 @@
                 </when>
             </choose>
 
-			<set-variable name="tokenRefreshData" value="@($"client_id={{ClientId}}&scope={Uri.EscapeDataString(((string)context.Variables["accessToken"]).AsJwt().Claims.GetValueOrDefault("scp", ""))}&refresh_token={(string)context.Variables["refreshToken"]}&grant_type=refresh_token&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}")" />
+			<set-variable name="tokenRefreshData" value="@($"client_id={{ClientId}}&refresh_token={(string)context.Variables["refreshToken"]}&grant_type=refresh_token&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}")" />
 
 			<send-request mode="new" response-variable-name="tokens" timeout="60" ignore-error="false">
 				<set-url>@((string)context.Variables["idpTokenEndpoint"])</set-url>
