@@ -1,9 +1,24 @@
 <fragment>
+
 	<!-- slide the cookie -->
-    <set-variable name="cookie-expiry" value="@(DateTimeOffset.UtcNow.AddSeconds({{SessionCookieExpirationInSeconds}}).ToUnixTimeMilliseconds())" />
-	<set-variable name="cookie-prefix" value="@($"{(string)context.Variables["cacheKey"]}.{(string)context.Variables["ivString"]}.{(long)context.Variables["cookie-expiry"]}")" />
-	<set-variable name="cookie-signature" value="@(Convert.ToBase64String(new System.Security.Cryptography.HMACSHA512(Convert.FromBase64String("{{SessionCookieKey}}")).ComputeHash(Encoding.UTF8.GetBytes((string)context.Variables["cookie-prefix"]))).Replace("=", "_"))" />
-	<set-header name="Set-Cookie" exists-action="override">
-        <value>@($"oidcsession={(string)context.Variables["cookie-prefix"]}.{(string)context.Variables["cookie-signature"]}; SameSite=Lax; Path=/; Secure; Expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}")</value>
-	</set-header>
+	<choose>
+		<when condition="@(context.Variables.ContainsKey("cacheKey"))">
+			<set-variable name="cookie-expiry" value="@(DateTimeOffset.UtcNow.AddSeconds({{SessionCookieExpirationInSeconds}}).ToUnixTimeMilliseconds())" />
+			<set-variable name="cookie-prefix" value="@($"{(string)context.Variables["cacheKey"]}.{(string)context.Variables["ivTokens"]}.{(long)context.Variables["cookie-expiry"]}")" />
+
+			<!-- encrypt this using the cookie-iv-->
+			<set-variable name="encryptedCookie" value="@{
+				var cookie = Encoding.UTF8.GetBytes((string)context.Variables["cookie-prefix"]);
+				var ivString = (string)context.Variables["ivCookie"];
+				var iv = Guid.Parse(ivString).ToByteArray();
+				var key = Convert.FromBase64String("{{CookieEncryptionKey}}");
+				var encryptedCookie = cookie.Encrypt("Aes", key, iv);
+				return Convert.ToBase64String(encryptedCookie) + "." + ivString;
+			}" />
+
+			<set-header name="Set-Cookie" exists-action="override">
+				<value>@($"oidcsession={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}")</value>
+			</set-header>
+		</when>
+	</choose>
 </fragment>

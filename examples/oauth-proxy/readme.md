@@ -19,8 +19,8 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 | -- | -- |
 | ClientId | AAD ClientId Id representing the application you are signing in against |
 | ClientSecret | AAD Client Secret used to exchange codes for tokens |
-| SessionCookieKey | A Base 64 Encoded string representing a 128 random byte array. Used to sign cookies to check their validity |
-| TokenEncryptionKey | A Base 64 Encoded string of 32 random bytes, used as the Key for an AES 256 encryption algorithm for encrypting tokens at rest |
+| SessionCookieKey | A Base 64 Encoded string of a 32 random bytes array. Used by an AES 256 encryption algorithm to encrypt cookies |
+| TokenEncryptionKey | A Base 64 Encoded string of 32 random bytes. Used as the Key for an AES 256 encryption algorithm for encrypting tokens at rest |
 | SessionCookieExpirationInSeconds | How long to allow session cookies to stay active for |
 | RefreshTokenExpirationInSeconds | How long to cache refresh tokens for (a good guide would be how long your average user's session lasts for) |
 
