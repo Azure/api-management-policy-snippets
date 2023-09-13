@@ -189,7 +189,14 @@
 	<set-header name="x-proxy-id-token-name" exists-action="override">
 		<value>@(((Jwt)context.Variables["idTokenJwt"]).Claims["name"][0])</value>
 	</set-header>
-	<set-header name="x-proxy-id-token-preferred-username" exists-action="override">
-		<value>@(((Jwt)context.Variables["idTokenJwt"]).Claims["preferred_username"][0])</value>
-	</set-header>
+
+	<!-- Auth0 id-token didn't have a preferred_username claim. Just name. -->
+    <choose>
+        <when condition="@(((Jwt)context.Variables["idTokenJwt"]).Claims.ContainsKey("preferred_username"))">
+            <set-header name="x-proxy-id-token-preferred-username" exists-action="override">
+                <value>@(((Jwt)context.Variables["idTokenJwt"]).Claims["preferred_username"][0])</value>
+            </set-header>
+        </when>
+    </choose>
+
 </fragment>
