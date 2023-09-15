@@ -13,8 +13,9 @@
 				var iv = Guid.Parse(ivString).ToByteArray();
 				var key1 = Convert.FromBase64String("{{CookieEncryptionKey1}}");
 				var key2 = Convert.FromBase64String("{{CookieEncryptionKey2}}");
-				var key = {{CookieEncryptionKey}} == 1 ? key1 : key2;
-				var encryptedCookie = cookie.Encrypt("Aes", key, iv);
+				var key = {{CookieEncryptionKey}};
+				var encryptionKey = key == 1 ? key1 : key2;
+				var encryptedCookie = cookie.Encrypt("Aes", encryptionKey, iv);
 				return $"{Convert.ToBase64String(encryptedCookie)}.{ivString}.{key}";
 			}" />
 
