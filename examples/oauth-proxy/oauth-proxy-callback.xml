@@ -85,17 +85,21 @@
                         <set-variable name="encryptedAccessToken" value="@{
                             var token = Encoding.UTF8.GetBytes((string)context.Variables["accessToken"]);
                             var iv = Guid.Parse((string)context.Variables["ivTokens"]).ToByteArray();
-                            var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
+                            var key1 = Convert.FromBase64String("{{TokenEncryptionKey1}}");
+                            var key2 = Convert.FromBase64String("{{TokenEncryptionKey2}}");
+                            var key = {{TokenEncryptionKey}} == 1 ? key1 : key2;
                             var encryptedToken = token.Encrypt("Aes", key, iv);
-                            return Convert.ToBase64String(encryptedToken);
+                            return $"{Convert.ToBase64String(encryptedToken)}.{key}";
                         }" />
 
                         <set-variable name="encryptedIdToken" value="@{
                             var token = Encoding.UTF8.GetBytes((string)context.Variables["idtoken"]);
                             var iv = Guid.Parse((string)context.Variables["ivTokens"]).ToByteArray();
-                            var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
+                            var key1 = Convert.FromBase64String("{{TokenEncryptionKey1}}");
+                            var key2 = Convert.FromBase64String("{{TokenEncryptionKey2}}");
+                            var key = {{TokenEncryptionKey}} == 1 ? key1 : key2;
                             var encryptedToken = token.Encrypt("Aes", key, iv);
-                            return Convert.ToBase64String(encryptedToken);
+                            return $"{Convert.ToBase64String(encryptedToken)}.{key}";
                         }" />
 
                         <!-- Store the encrypted token in the cache. -->
@@ -116,9 +120,11 @@
                             var cookie = Encoding.UTF8.GetBytes((string)context.Variables["cookie-prefix"]);
                             var ivString = (string)context.Variables["ivCookie"];
                             var iv = Guid.Parse(ivString).ToByteArray();
-                            var key = Convert.FromBase64String("{{CookieEncryptionKey}}");
+                            var key1 = Convert.FromBase64String("{{CookieEncryptionKey1}}");
+                            var key2 = Convert.FromBase64String("{{CookieEncryptionKey2}}");
+                            var key = {{CookieEncryptionKey}} == 1 ? key1 : key2;
                             var encryptedCookie = cookie.Encrypt("Aes", key, iv);
-                            return Convert.ToBase64String(encryptedCookie) + "." + ivString;
+                            return $"{Convert.ToBase64String(encryptedCookie)}.{ivString}.{key}";
                         }" />
 
                         <return-response>

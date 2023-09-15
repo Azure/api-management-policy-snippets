@@ -19,8 +19,12 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 | -- | -- |
 | ClientId | AAD ClientId Id representing the application you are signing in against |
 | ClientSecret | AAD Client Secret used to exchange codes for tokens |
-| SessionCookieKey | A Base 64 Encoded string of a 32 random bytes array. Used by an AES 256 encryption algorithm to encrypt cookies |
-| TokenEncryptionKey | A Base 64 Encoded string of 32 random bytes. Used as the Key for an AES 256 encryption algorithm for encrypting tokens at rest |
+| CookieEncryptionKey | 1 or 2. This is the key used to protect newly issued cookies |
+| TokenEncryptionKey | 1 or 2. This is the key used to protect newly issued tokens |
+| CookieEncryptionKey1 | A Base 64 Encoded string of a 32 random bytes array. Used by an AES 256 encryption algorithm to encrypt cookies |
+| TokenEncryptionKey1 | A Base 64 Encoded string of 32 random bytes. Used as the Key for an AES 256 encryption algorithm for encrypting tokens at rest |
+| CookieEncryptionKey2 | A Base 64 Encoded string of a 32 random bytes array. Used by an AES 256 encryption algorithm to encrypt cookies |
+| TokenEncryptionKey2 | A Base 64 Encoded string of 32 random bytes. Used as the Key for an AES 256 encryption algorithm for encrypting tokens at rest |
 | SessionCookieExpirationInSeconds | How long to allow session cookies to stay active for |
 | RefreshTokenExpirationInSeconds | How long to cache refresh tokens for (a good guide would be how long your average user's session lasts for) |
 
@@ -75,10 +79,9 @@ This fragment is intended to sit at a high-level around any calls you need to pr
 
 It checks for an incoming session-cookie and either
  - Redirects to oauth/signin if invalid / expired
- - Fetches tokens from Redis, and decrypts them using the Session-Id (IV), and the TokenEncryptionKey (Key) 
+ - Fetches tokens from Redis, and decrypts them using the Session-Id (IV), and the TokenEncryptionKey(1 or 2) key
  - Renews access tokens using a refresh-token if they are nearing expiration
  - Appends the Bearer token to the request for use by the downstream API.
-
 
 ## /oauth/signin
 > Implemented by [oauth-proxy-sign-in.xml](./oauth-proxy-sign-in.xml)
@@ -123,9 +126,9 @@ This policy handles a callback from an IdP to complete an OIDC flow.
 - Check the nonce in the returned token matches the nonce stored in session
 - Return 401 if we cannot match the nonce
 - Creates an IV which is round-tripped in the session cookie (not stored server-side)
-- Encrypts the tokens using the above IV, and the TokenEncryptionKey (Key) 
+- Encrypts the tokens using the above IV, and the TokenEncryptionKey(1 or 2)
 - Store the encrypted tokens in Redis
-- Set a session-cookie which comprises of our cache-key, the IV, the cookies expiry timestamp. Signs it using a HMAC-SHA-512 signature creating using the SessionCookieKey named value.
+- Set a session-cookie which comprises of our cache-key, the IV, the cookies expiry timestamp. Signs it using a HMAC-SHA-512 signature creating using the SessionCookieKey(1 or 2) named value.
 
 ## Authorization Token Endpoint fragment (sample for AAD)
 > Implemented by [oauth-proxy-token-endpoint-fragment.xml](./oauth-proxy-token-endpoint-fragment.xml)

@@ -22,6 +22,7 @@
 	<!-- get the IV from cache, and decrypt the contents of the cookie -->
 	<set-variable name="encryptedCookie" value="@(((string)context.Variables["encryptedIncomingFullSessionCookie"]).Split('.')[0])" />
 	<set-variable name="ivCookie" value="@(((string)context.Variables["encryptedIncomingFullSessionCookie"]).Split('.')[1])" />
+	<set-variable name="cookieKey" value="@(((string)context.Variables["encryptedIncomingFullSessionCookie"]).Split('.')[2])" />
 
 	<choose>
 		<!-- Cookie not the right format - redirect to the sign-in endpoint -->
@@ -39,7 +40,9 @@
 	<set-variable name="incomingFullSessionCookie" value="@{
 		var cookieBytes = Convert.FromBase64String(((string)context.Variables["encryptedCookie"]));
 		var iv = Guid.Parse((string)context.Variables["ivCookie"]).ToByteArray();
-		var key = Convert.FromBase64String("{{CookieEncryptionKey}}");
+		var key1 = Convert.FromBase64String("{{CookieEncryptionKey1}}");
+		var key2 = Convert.FromBase64String("{{CookieEncryptionKey2}}");
+		var key = (string)context.Variables["cookieKey"]  == "1" ? key1 : key2;
 		var decryptedBytes = cookieBytes.Decrypt("Aes", key, iv);
         return Encoding.UTF8.GetString(decryptedBytes);
 	}" />
@@ -80,18 +83,26 @@
 
 	<!-- decrypt and turn back into a JObject -->
 	<set-variable name="accessToken" value="@{
-		var token = Convert.FromBase64String(((string)context.Variables["encryptedAccessToken"]));
+		var tokenParts = ((string)context.Variables["encryptedAccessToken"]).Split('.');
+		var token = Convert.FromBase64String(tokenParts[0]);
+		var keySet = tokenParts[1];
 		var iv = Guid.Parse((string)context.Variables["ivTokens"]).ToByteArray();
-		var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
+		var key1 = Convert.FromBase64String("{{TokenEncryptionKey1}}");
+		var key2 = Convert.FromBase64String("{{TokenEncryptionKey2}}");
+		var key = keySet == "1" ? key1 : key2;
 		var decryptedBytes = token.Decrypt("Aes", key, iv);
         return Encoding.UTF8.GetString(decryptedBytes);
 	}" />
 
 	<!-- decrypt and turn back into a JObject -->
 	<set-variable name="idToken" value="@{
-		var token = Convert.FromBase64String(((string)context.Variables["encryptedIdToken"]));
+		var tokenParts = ((string)context.Variables["encryptedIdToken"]).Split('.');
+		var token = Convert.FromBase64String(tokenParts[0]);
+		var keySet = tokenParts[1];
 		var iv = Guid.Parse((string)context.Variables["ivTokens"]).ToByteArray();
-		var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
+		var key1 = Convert.FromBase64String("{{TokenEncryptionKey1}}");
+		var key2 = Convert.FromBase64String("{{TokenEncryptionKey2}}");
+		var key = keySet == "1" ? key1 : key2;
 		var decryptedBytes = token.Decrypt("Aes", key, iv);
         return Encoding.UTF8.GetString(decryptedBytes);
 	}" />
@@ -151,17 +162,21 @@
 					<set-variable name="encryptedAccessToken" value="@{
 						var token = Encoding.UTF8.GetBytes((string)context.Variables["accessToken"]);
 						var iv = Guid.Parse((string)context.Variables["ivTokens"]).ToByteArray();
-						var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
+						var key1 = Convert.FromBase64String("{{TokenEncryptionKey1}}");
+						var key2 = Convert.FromBase64String("{{TokenEncryptionKey2}}");
+						var key = {{TokenEncryptionKey}} == 1 ? key1 : key2;
 						var encryptedToken = token.Encrypt("Aes", key, iv);
-						return Convert.ToBase64String(encryptedToken);
+						return $"{Convert.ToBase64String(encryptedToken)}.{key}";
 					}" />
 
 					<set-variable name="encryptedIdToken" value="@{
 						var token = Encoding.UTF8.GetBytes((string)context.Variables["idtoken"]);
 						var iv = Guid.Parse((string)context.Variables["ivTokens"]).ToByteArray();
-						var key = Convert.FromBase64String("{{TokenEncryptionKey}}");
+						var key1 = Convert.FromBase64String("{{TokenEncryptionKey1}}");
+						var key2 = Convert.FromBase64String("{{TokenEncryptionKey2}}");
+						var key = {{TokenEncryptionKey}} == 1 ? key1 : key2;
 						var encryptedToken = token.Encrypt("Aes", key, iv);
-						return Convert.ToBase64String(encryptedToken);
+						return $"{Convert.ToBase64String(encryptedToken)}.{key}";
 					}" />
 
 					<!-- Store the encrypted token in the cache. -->

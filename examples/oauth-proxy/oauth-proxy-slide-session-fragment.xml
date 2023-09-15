@@ -11,9 +11,11 @@
 				var cookie = Encoding.UTF8.GetBytes((string)context.Variables["cookie-prefix"]);
 				var ivString = (string)context.Variables["ivCookie"];
 				var iv = Guid.Parse(ivString).ToByteArray();
-				var key = Convert.FromBase64String("{{CookieEncryptionKey}}");
+				var key1 = Convert.FromBase64String("{{CookieEncryptionKey1}}");
+				var key2 = Convert.FromBase64String("{{CookieEncryptionKey2}}");
+				var key = {{CookieEncryptionKey}} == 1 ? key1 : key2;
 				var encryptedCookie = cookie.Encrypt("Aes", key, iv);
-				return Convert.ToBase64String(encryptedCookie) + "." + ivString;
+				return $"{Convert.ToBase64String(encryptedCookie)}.{ivString}.{key}";
 			}" />
 
 			<set-header name="Set-Cookie" exists-action="override">
