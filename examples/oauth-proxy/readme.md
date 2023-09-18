@@ -8,9 +8,10 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 
 | Named Value | Purpose |
 | -- | -- |
-| CookiePrefix | The name we use for the cookie used to control the oauth-proxy |
+| AdditionalScopes | Space separated string of other scopes to request delegated consent for |
 | ClientId | AAD ClientId Id representing the application you are signing in against |
 | ClientSecret | AAD Client Secret used to exchange codes for tokens |
+| CookiePrefix | The name we use for the cookie used to control the oauth-proxy |
 | CookieEncryptionKey | 1 or 2. Selects the key (CookieEncryptionKey**1** or CookieEncryptionKey**2**) used to protect newly issued cookies. This allows you to periodically rotate keys |
 | CookieEncryptionKey1 | A Base 64 Encoded string of a 32 random bytes array. Used by an AES 256 encryption algorithm to encrypt cookies |
 | CookieEncryptionKey2 | A Base 64 Encoded string of a 32 random bytes array. Used by an AES 256 encryption algorithm to encrypt cookies |
@@ -19,7 +20,6 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 | TokenEncryptionKey2 | A Base 64 Encoded string of 32 random bytes. Used as the Key for an AES 256 encryption algorithm for encrypting tokens at rest |
 | SessionCookieExpirationInSeconds | How long to allow session cookies to stay active for |
 | RefreshTokenExpirationInSeconds | How long to cache refresh tokens for (a good guide would be how long your average user's session lasts for) |
-| AdditionalScopes | Space separated string of other scopes to request delegated consent for |
 
 > You can generate the Base 64 random bytes in dotnet using ``` Convert.ToBase64String(RandomNumberGenerator.GetBytes(<size>)) ```, or in bash using ```openssl rand -base64 32```
 
@@ -30,7 +30,6 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 | TenantId | AAD Tenant Id that owns the ClientId you want users to sign-in to |
 
 
-
 ## Fragments
 | Fragment File Name | Fragment Name | Purpose | How to use |
 | -- | -- | -- | -- |
@@ -39,7 +38,7 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 | [oauth-proxy-construct-authorization-redirect-fragment.xml](oauth-proxy-construct-authorization-redirect.xml) | oauth-proxy-construct-authorization-redirect-fragment | A fragment that constructs an OIDC Authorize request to your endpoint | If using a different IdP, use ```oauth-proxy-construct-authorization-redirect.xml``` as a guide to configuring for your IdP |
 | [oauth-proxy-slide-session-fragment.xml](oauth-proxy-slide-session-fragment.xml) | oauth-proxy-slide-session-fragment | A fragment that slides any issued session cookie | Place inside the ```<outbound>``` policy of any Web Apps you want to protect with a session cookie |
 
-## Policies
+## Policies for Oidc Endpoints 
 | Policy Name | API path | Purpose | How to use |
 | -- | -- | -- | -- |
 | [oauth-proxy-sign-in.xml](oauth-proxy-sign-in.xml) | ```/oauth/signin``` | Initiates a front-channel code / pkce flow with an IdP  | Configure this as the 'signin' operation within an API called 'OAuth' |
@@ -80,8 +79,7 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 
 # Policy Details
 
-## Session Check fragment
-> Implemented by [oauth-proxy-session-fragment.xml](./oauth-proxy-session-fragment.xml)
+## oauth-proxy-session-fragment
 
 ### Purpose
 This fragment is intended to sit at a high-level around any calls you need to protect.
@@ -92,8 +90,35 @@ It checks for an incoming session-cookie and either
  - Renews access tokens using a refresh-token if they are nearing expiration
  - Appends the Bearer token to the request for use by the downstream API.
 
-## /oauth/signin
-> Implemented by [oauth-proxy-sign-in.xml](./oauth-proxy-sign-in.xml)
+## oauth-proxy-construct-authorization-redirect-fragment
+
+### Purpose
+Assigns a valid URI to the ```oauth-proxy-redirect``` variable that will redirect a User to an IdP to initiate a sign-in.
+
+The following variables are set by the ```oauth-proxy-sign-in``` policy to use here:
+- state
+- nonce
+- codeChallengeSha256
+
+This fragment must set a variable called ```oauth-proxy-redirect``` which initiates the sign-in flow.
+
+## oauth-proxy-slide-session-fragment
+
+### Purpose
+An Outbound processing fragment that slides the current session cookie. Use it at the same API scope as the above Session check fragment.
+
+### Steps
+- Issues a new session cookie on all requests, which slides forward to ```UtcNow + SessionCookieExpirationInSeconds```
+
+## oauth-proxy-token-endpoint-fragment
+
+### Purpose
+This fragment creates a valid URI that where we can exchange a code for a token.
+
+This fragment must set a variable called ```idpTokenEndpoint``` where we can POST to.
+
+
+## oauth-proxy-sign-in
 
 ### Purpose
 This policy initiates an OIDC 3-legged sign-in flow.
@@ -106,21 +131,7 @@ This policy initiates an OIDC 3-legged sign-in flow.
 | -- | -- |
 | redirect | Fully qualified URL to redirect to after a successful sign-in flow |
 
-## Authorization Request Fragment (sample for AAD)
-> Implemented by [oauth-proxy-construct-authorization-redirect.xml](./oauth-proxy-construct-authorization-redirect.xml)
-
-### Purpose
-This fragment must be called ```oauth-proxy-construct-authorization-redirect``` and must assign a valid URI to the ```oauth-proxy-redirect``` variable that will redirect a User to an IdP to initiate a sign-in.
-
-The following variables are set by the ```sign-in.xml``` policy to use here:
-- state
-- nonce
-- codeChallengeSha256
-
-This fragment must set a variable called ```oauth-proxy-redirect``` which initiates the sign-in flow.
-
-
-## /oauth/callback
+## oauth-proxy-callback
 > Implemented by [oauth-proxy-callback.xml](./oauth-proxy-callback.xml)
 
 ### Purpose
@@ -139,25 +150,7 @@ This policy handles a callback from an IdP to complete an OIDC flow.
 - Store the encrypted tokens in Redis
 - Set a session-cookie which comprises of our cache-key, the IV, the cookies expiry timestamp. Signs it using a HMAC-SHA-512 signature creating using the SessionCookieKey(1 or 2) named value.
 
-## Authorization Token Endpoint fragment (sample for AAD)
-> Implemented by [oauth-proxy-token-endpoint-fragment.xml](./oauth-proxy-token-endpoint-fragment.xml)
-
-### Purpose
-This fragment must be created as ```oauth-proxy-token-endpoint``` and creates a valid URI that where we can exchange a code for a token.
-
-This fragment must set a variable called ```idpTokenEndpoint``` where we can POST to.
-
-## Sliding Session Cookie fragment
-> Implemented by [oauth-proxy-slide-session-fragment.xml](oauth-proxy-slide-session-fragment.xml)
-
-### Purpose
-An Outbound processing fragment that slides the session cookie associated with the session. Use it at the same API scope as the above Session check fragment.
-
-### Steps
-- Issues a new session cookie on all requests, which slides forward to ```UtcNow + SessionCookieExpirationInSeconds```
-
-
-## /oauth/signout
+## oauth-proxy-sign-out
 > Implemented by [oauth-proxy-signout.xml](./oauth-proxy-signout.xml)
 
 ### Purpose
