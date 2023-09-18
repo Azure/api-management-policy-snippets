@@ -180,8 +180,24 @@
         <set-header name="Set-Cookie" exists-action="override">
             <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
         </set-header>
-        <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-state")" />
-        <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-nonce")" />
-        <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-code-challenge")" />
+        <!-- removing cache values will error if they are not there. Let's check - the error might've occurred after already removing these -->
+        <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-state")" default-value="_" variable-name="check-state" />
+        <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-nonce")" default-value="_" variable-name="check-nonce" />
+        <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-code-challenge")" default-value="_" variable-name="check-code-challenge" />
+        <choose>
+            <when condition="@((string)context.Variables["check-state"] != "_")">
+                <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-state")" />
+            </when>
+        </choose>
+        <choose>
+            <when condition="@((string)context.Variables["check-nonce"] != "_")">
+                <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-nonce")" />
+            </when>
+        </choose>
+        <choose>
+            <when condition="@((string)context.Variables["check-code-challenge"] != "_")">
+                <cache-remove-value key="@($"signin-{context.Variables["cacheKey"]}-code-challenge")" />
+            </when>
+        </choose>
     </on-error>
 </policies>
