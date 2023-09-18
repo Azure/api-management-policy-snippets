@@ -29,7 +29,7 @@
             <when condition="@((string)context.Variables["expected-state"] != "")">
                 <!-- Get a backchannel call ready to switch the code for the token -->
                 <set-variable name="tokenData" value="@($"client_id={{ClientId}}&code={(string)context.Variables["code"]}&redirect_uri=https://{context.Request.OriginalUrl.Host}%2Foauth%2Fcallback&grant_type=authorization_code&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}&code_verifier={(string)context.Variables["code-challenge"]}")" />
-                <include-fragment fragment-id="oauth-proxy-token-endpoint" />
+                <include-fragment fragment-id="oauth-proxy-token-endpoint-fragment" />
                 <!-- Backchannel call to get the tokens -->
                 <send-request mode="new" response-variable-name="tokens" timeout="60" ignore-error="false">
                     <set-url>@((string)context.Variables["idpTokenEndpoint"])</set-url>
