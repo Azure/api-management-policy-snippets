@@ -11,11 +11,11 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 | CookiePrefix | The name we use for the cookie used to control the oauth-proxy |
 | ClientId | AAD ClientId Id representing the application you are signing in against |
 | ClientSecret | AAD Client Secret used to exchange codes for tokens |
-| CookieEncryptionKey | 1 or 2. This is the key used to protect newly issued cookies |
-| TokenEncryptionKey | 1 or 2. This is the key used to protect newly issued tokens |
+| CookieEncryptionKey | 1 or 2. Selects the key (CookieEncryptionKey**1** or CookieEncryptionKey**2**) used to protect newly issued cookies. This allows you to periodically rotate keys |
 | CookieEncryptionKey1 | A Base 64 Encoded string of a 32 random bytes array. Used by an AES 256 encryption algorithm to encrypt cookies |
-| TokenEncryptionKey1 | A Base 64 Encoded string of 32 random bytes. Used as the Key for an AES 256 encryption algorithm for encrypting tokens at rest |
 | CookieEncryptionKey2 | A Base 64 Encoded string of a 32 random bytes array. Used by an AES 256 encryption algorithm to encrypt cookies |
+| TokenEncryptionKey | 1 or 2. Selects the key (TokenEncryptionKey**1** or TokenEncryptionKey**2**)  used to protect newly issued tokens. This allows you to periodically rotate keys  |
+| TokenEncryptionKey1 | A Base 64 Encoded string of 32 random bytes. Used as the Key for an AES 256 encryption algorithm for encrypting tokens at rest |
 | TokenEncryptionKey2 | A Base 64 Encoded string of 32 random bytes. Used as the Key for an AES 256 encryption algorithm for encrypting tokens at rest |
 | SessionCookieExpirationInSeconds | How long to allow session cookies to stay active for |
 | RefreshTokenExpirationInSeconds | How long to cache refresh tokens for (a good guide would be how long your average user's session lasts for) |
