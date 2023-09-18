@@ -28,7 +28,7 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 | SessionCookieExpirationInSeconds | How long to allow session cookies to stay active for |
 | RefreshTokenExpirationInSeconds | How long to cache refresh tokens for (a good guide would be how long your average user's session lasts for) |
 
-> You can generate the Base 64 random bytes in dotnet using ``` Convert.ToBase64String(RandomNumberGenerator.GetBytes(<size>)) ```
+> You can generate the Base 64 random bytes in dotnet using ``` Convert.ToBase64String(RandomNumberGenerator.GetBytes(<size>)) ```, or in bash using ```openssl rand -base64 32```
 
 ### Required Named Values for the ```oauth-proxy-construct-authorization-redirect```
 

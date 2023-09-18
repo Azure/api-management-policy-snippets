@@ -5,7 +5,7 @@
         <!-- Get the state from the incoming form post. -->
         <set-variable name="state" value="@(context.Request.Body.AsFormUrlEncodedContent()["state"].Single())" />
         <!-- Grab the cookie that comes in. The state should match that of the cookie. -->
-        <set-variable name="cacheKey" value="@(context.Request.Headers["cookie"].Select(cookie => cookie.Trim().Split('=')).Single(cookie => cookie[0] == $"oidc-{(string)context.Variables["state"]}")[1])" />
+        <set-variable name="cacheKey" value="@(context.Request.Headers.GetValueOrDefault("cookie", "").Split(';').Select(x => x.Trim()).Select(cookie => cookie.Trim().Split('=')).Single(cookie => cookie[0] == $"oidc-{(string)context.Variables["state"]}")[1])" />
         <!-- get the state and the nonce so we can check them against the token we exchange for -->
         <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-state")" default-value="" variable-name="expected-state" />
         <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-nonce")" default-value="" variable-name="expected-nonce" />
@@ -29,9 +29,7 @@
             <when condition="@((string)context.Variables["expected-state"] != "")">
                 <!-- Get a backchannel call ready to switch the code for the token -->
                 <set-variable name="tokenData" value="@($"client_id={{ClientId}}&code={(string)context.Variables["code"]}&redirect_uri=https://{context.Request.OriginalUrl.Host}%2Foauth%2Fcallback&grant_type=authorization_code&client_secret={Uri.EscapeDataString("{{ClientSecret}}")}&code_verifier={(string)context.Variables["code-challenge"]}")" />
-
                 <include-fragment fragment-id="oauth-proxy-token-endpoint" />
-
                 <!-- Backchannel call to get the tokens -->
                 <send-request mode="new" response-variable-name="tokens" timeout="60" ignore-error="false">
                     <set-url>@((string)context.Variables["idpTokenEndpoint"])</set-url>
@@ -60,27 +58,21 @@
                 <choose>
                     <!-- Check the nonce matches the one we stoerd in cache -->
                     <when condition="@((string)context.Variables["expected-nonce"] == (string)context.Variables["idTokenNonce"])">
-
                         <!-- Find when the tokens expire. We'll make the tokens in the cache drop out at this time -->
                         <set-variable name="refreshTime" value="@((int)((JObject)context.Variables["tokenResponse"])["expires_in"])" />
                         <set-variable name="accessToken" value="@( ((JObject)context.Variables["tokenResponse"])["access_token"].ToString())" />
                         <set-variable name="refreshToken" value="@( ((JObject)context.Variables["tokenResponse"])["refresh_token"].ToString())" />
                         <set-variable name="idtoken" value="@( ((JObject)context.Variables["tokenResponse"])["id_token"].ToString())" />
-
                         <!-- The plan -->
-                        <!-- Cookie <encryptedPayload(CookieEncryptionKey, iv1, timestamp)>.iv2Lookup --> 
+                        <!-- Cookie <encryptedPayload(CookieEncryptionKey, iv1, timestamp)>.iv2Lookup -->
                         <!-- Cache: iv2Lookup <iv2> -->
                         <!-- CachedTokens <encrypted(TokenEncryptionKey, iv2)>.tokens -->
-
                         <!-- create the IV used in encrypting the cookie. This is stored in our cache and looked up using the cache key -->
                         <set-variable name="ivCookie" value="@(Guid.NewGuid().ToString())" />
-
                         <!-- create the IV used in encrypting the tokens. We don't store this server side. It flows encrypted in cookies -->
                         <set-variable name="ivTokens" value="@(Guid.NewGuid().ToString())" />
-
                         <!-- A new GUID used to lookup the IV in the cache. Keeping it different to the other cache key -->
                         <set-variable name="ivCookieCacheKey" value="@(Guid.NewGuid().ToString())" />
-
                         <!-- Encrypt the tokenResponse variable, and store that in cache. We'll handle the refresh token separately as it lasts longer -->
                         <set-variable name="encryptedAccessToken" value="@{
                             var token = Encoding.UTF8.GetBytes((string)context.Variables["accessToken"]);
@@ -92,7 +84,6 @@
                             var encryptedToken = token.Encrypt("Aes", encryptionKey, iv);
                             return $"{Convert.ToBase64String(encryptedToken)}.{key}";
                         }" />
-
                         <set-variable name="encryptedIdToken" value="@{
                             var token = Encoding.UTF8.GetBytes((string)context.Variables["idtoken"]);
                             var iv = Guid.Parse((string)context.Variables["ivTokens"]).ToByteArray();
@@ -103,7 +94,6 @@
                             var encryptedToken = token.Encrypt("Aes", encryptionKey, iv);
                             return $"{Convert.ToBase64String(encryptedToken)}.{key}";
                         }" />
-
                         <!-- Store the encrypted token in the cache. -->
                         <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-accessToken")" value="@((string)context.Variables["encryptedAccessToken"])" duration="@((int)context.Variables["refreshTime"])" />
                         <!-- Store the encrypted token in the cache. -->
@@ -112,11 +102,9 @@
                         <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshAt")" value="@(DateTimeOffset.UtcNow.AddSeconds((int)context.Variables["refreshTime"] / 2).ToUnixTimeSeconds())" duration="@((int)context.Variables["refreshTime"])" />
                         <!-- Store the refresh token separately. We probably want to cache it for longer than the token (avg user session length is a good idea) -->
                         <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" value="@((string)context.Variables["refreshToken"])" duration="{{RefreshTokenExpirationInSeconds}}" />
-
                         <!-- Get the cookie details -->
                         <set-variable name="cookie-expiry" value="@(DateTimeOffset.UtcNow.AddSeconds({{SessionCookieExpirationInSeconds}}).ToUnixTimeMilliseconds())" />
                         <set-variable name="cookie-prefix" value="@($"{(string)context.Variables["cacheKey"]}.{(string)context.Variables["ivTokens"]}.{(long)context.Variables["cookie-expiry"]}")" />
-
                         <!-- encrypt this using the cookie-iv-->
                         <set-variable name="encryptedCookie" value="@{
                             var cookie = Encoding.UTF8.GetBytes((string)context.Variables["cookie-prefix"]);
@@ -129,7 +117,6 @@
                             var encryptedCookie = cookie.Encrypt("Aes", encryptionKey, iv);
                             return $"{Convert.ToBase64String(encryptedCookie)}.{ivString}.{key}";
                         }" />
-
                         <return-response>
                             <set-status code="302" reason="Found" />
                             <set-header name="Set-Cookie" exists-action="override">
