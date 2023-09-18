@@ -5,7 +5,7 @@
         <!-- Get the state from the incoming form post. -->
         <set-variable name="state" value="@(context.Request.Body.AsFormUrlEncodedContent()["state"].Single())" />
         <!-- Grab the cookie that comes in. The state should match that of the cookie. -->
-        <set-variable name="cacheKey" value="@(context.Request.Headers.GetValueOrDefault("cookie", "").Split(';').Select(x => x.Trim()).Select(cookie => cookie.Trim().Split('=')).Single(cookie => cookie[0] == $"oidc-{(string)context.Variables["state"]}")[1])" />
+        <set-variable name="cacheKey" value="@(context.Request.Headers.GetValueOrDefault("cookie", "").Split(';').Select(x => x.Trim()).Select(cookie => cookie.Split('=')).Single(cookie => cookie[0] == $"{{CookiePrefix}}-{(string)context.Variables["state"]}")[1])" />
         <!-- get the state and the nonce so we can check them against the token we exchange for -->
         <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-state")" default-value="" variable-name="expected-state" />
         <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-nonce")" default-value="" variable-name="expected-nonce" />
@@ -19,7 +19,7 @@
                 <return-response>
                     <set-status code="401" reason="Unexpected state" />
                     <set-header name="Set-Cookie" exists-action="override">
-                        <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                        <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                     </set-header>
                     <set-body>@($"{(string)context.Variables["state"]} != {(string)context.Variables["expected-state"]}")</set-body>
                 </return-response>
@@ -44,7 +44,7 @@
                         <return-response>
                             <set-status code="401" reason="An error occurred" />
                             <set-header name="Set-Cookie" exists-action="override">
-                                <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                                <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                             </set-header>
                         </return-response>
                     </when>
@@ -120,10 +120,10 @@
                         <return-response>
                             <set-status code="302" reason="Found" />
                             <set-header name="Set-Cookie" exists-action="override">
-                                <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                                <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                             </set-header>
                             <set-header name="Set-Cookie" exists-action="append">
-                                <value>@($"oidcsession={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}")</value>
+                                <value>@($"{{CookiePrefix}}={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}")</value>
                             </set-header>
                             <set-header name="Location" exists-action="override">
                                 <value>@((string)context.Variables["expected-state"])</value>
@@ -135,7 +135,7 @@
                         <return-response>
                             <set-status code="401" reason="Unexpected nonce" />
                             <set-header name="Set-Cookie" exists-action="override">
-                                <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                                <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                             </set-header>
                             <set-body>@($"{(string)context.Variables["expected-nonce"]} != {(string)context.Variables["idTokenNonce"]}")</set-body>
                         </return-response>
@@ -147,7 +147,7 @@
                 <return-response>
                     <set-status code="401" reason="Unexpected state" />
                     <set-header name="Set-Cookie" exists-action="override">
-                        <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                        <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                     </set-header>
                     <set-body>@($"{(string)context.Variables["state"]} != {(string)context.Variables["expected-state"]}")</set-body>
                 </return-response>
@@ -165,7 +165,7 @@
         <base />
         <!-- Any errors lets clean-up the cookies we were using to track the 3 legged flow so they don't stack up -->
         <set-header name="Set-Cookie" exists-action="override">
-            <value>@($"oidc-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+            <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
         </set-header>
         <!-- removing cache values will error if they are not there. Let's check - the error might've occurred after already removing these -->
         <cache-lookup-value key="@($"signin-{context.Variables["cacheKey"]}-state")" default-value="_" variable-name="check-state" />

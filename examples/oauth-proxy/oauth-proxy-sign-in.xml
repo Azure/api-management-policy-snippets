@@ -52,7 +52,7 @@
                                 <value>@((string)context.Variables["idpRedirect"])</value>
                             </set-header>
                             <set-header name="Set-Cookie" exists-action="override">
-                                <value>@($"oidc-{(string)context.Variables["state"]}={(string)context.Variables["cookie"]}; Secure; SameSite=None; Path=/; Expires={DateTimeOffset.Now.AddSeconds(300).ToString("R")}")</value>
+                                <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}={(string)context.Variables["cookie"]}; Secure; SameSite=None; Path=/; Expires={DateTimeOffset.Now.AddSeconds(300).ToString("R")}")</value>
                             </set-header>
                         </return-response>
                     </otherwise>

@@ -20,7 +20,7 @@
 			}" />
 
 			<set-header name="Set-Cookie" exists-action="override">
-				<value>@($"oidcsession={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}")</value>
+				<value>@($"{{CookiePrefix}}={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}")</value>
 			</set-header>
 		</when>
 	</choose>

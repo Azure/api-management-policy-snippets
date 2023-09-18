@@ -33,7 +33,7 @@
                 <return-response>
                     <set-status code="200" reason="OK" />
                     <set-header name="Set-Cookie" exists-action="override">
-                        <value>@($"oidcsession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                        <value>@($"{{CookiePrefix}}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                     </set-header>
                     <set-body />
                 </return-response>
@@ -43,7 +43,7 @@
                 <return-response>
                     <set-status code="200" reason="OK" />
                     <set-header name="Set-Cookie" exists-action="override">
-                        <value>@($"oidcsession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                        <value>@($"{{CookiePrefix}}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                     </set-header>
                     <set-body />
                 </return-response>
@@ -55,7 +55,7 @@
                         <value>@((string)context.Variables["redirect"])</value>
                     </set-header>
                     <set-header name="Set-Cookie" exists-action="override">
-                        <value>@($"oidcsession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+                        <value>@($"{{CookiePrefix}}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                     </set-header>
                 </return-response>
             </otherwise>

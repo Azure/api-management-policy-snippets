@@ -6,7 +6,7 @@
 -->
 <fragment>
 	<!-- Grab the incoming session cookie -->
-	<set-variable name="encryptedIncomingFullSessionCookie" value="@(context.Request.Headers.ContainsKey("cookie") ? context.Request.Headers["cookie"].Select(cookie => cookie.Trim().Split('=')).SingleOrDefault(cookie => cookie[0] == "oidcsession")?[1] ?? string.Empty : string.Empty)" />
+	<set-variable name="encryptedIncomingFullSessionCookie" value="@(context.Request.Headers.ContainsKey("cookie") ? context.Request.Headers.GetValueOrDefault("cookie", "").Split(';').Select(x => x.Trim()).Select(cookie => cookie.Split('=')).SingleOrDefault(cookie => cookie[0] == "{{CookiePrefix}}")?[1] ?? string.Empty : string.Empty)" />
 	<choose>
 		<!-- No cookie - redirect to the sign-in endpoint -->
 		<when condition="@(context.Variables["encryptedIncomingFullSessionCookie"] == string.Empty)">
@@ -141,7 +141,7 @@
 					<return-response>
 						<set-status code="302" />
 						<set-header name="Set-Cookie" exists-action="override">
-							<value>@($"oidcsession=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
+							<value>@($"{{CookiePrefix}}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
 						</set-header>
 						<set-header name="Location" exists-action="override">
 							<value>@($"/oauth/signin?redirect={Uri.EscapeDataString(context.Request.OriginalUrl.ToString())}")</value>
