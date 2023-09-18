@@ -46,23 +46,20 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 | [oauth-proxy-callback.xml](oauth-proxy-callback.xml) | ```/oauth/callback``` | Handles an IdP's callback in response to a sign-in request  | Configure this as the 'callback' operation within an API called 'OAuth' |
 | [oauth-proxy-sign-out.xml](oauth-proxy-sign-out.xml) | ```/oauth/signout``` | Clears a user's session cookie, and removes all token data from the cache.  | Configure this as the 'signout' operation within an API called 'OAuth' |
 
-# Policy Details
-
-## Sample wrapper policy around Web Apps
+## Simple policy to protect Web Applications
 
 ```xml
 <policies>
     <inbound>
         <include-fragment fragment-id="oauth-proxy-token-endpoint" />
         <include-fragment fragment-id="oauth-proxy-session-fragment" />
-        <!-- Adds the following headers: 
+        <!-- Adds the following headers to the downstream request: 
             
             Authorization: Bearer {access-token}
             x-proxy-id-token: {id-token} 
             x-proxy-id-token-name: {id-token name claim}
             x-proxy-id-token-preferred-username: {id-token preferred-username claim}
-
-            to the downstream request -->
+            -->
         <base />
     </inbound>
     <backend>
@@ -79,6 +76,9 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 </policies>
 
 ```
+
+
+# Policy Details
 
 ## Session Check fragment
 > Implemented by [oauth-proxy-session-fragment.xml](./oauth-proxy-session-fragment.xml)
