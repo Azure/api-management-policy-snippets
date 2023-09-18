@@ -21,7 +21,7 @@
                     <set-header name="Set-Cookie" exists-action="override">
                         <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                     </set-header>
-                    <set-body>@($"{(string)context.Variables["state"]} != {(string)context.Variables["expected-state"]}")</set-body>
+                    <!-- <set-body>@($"{(string)context.Variables["state"]} != {(string)context.Variables["expected-state"]}")</set-body> -->
                 </return-response>
             </when>
             <!-- If we found something in the cache using the incoming state, then the callback is linked to a known original request. -->
@@ -137,7 +137,7 @@
                             <set-header name="Set-Cookie" exists-action="override">
                                 <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                             </set-header>
-                            <set-body>@($"{(string)context.Variables["expected-nonce"]} != {(string)context.Variables["idTokenNonce"]}")</set-body>
+                            <!-- <set-body>@($"{(string)context.Variables["expected-nonce"]} != {(string)context.Variables["idTokenNonce"]}")</set-body> -->
                         </return-response>
                     </otherwise>
                 </choose>
@@ -149,7 +149,7 @@
                     <set-header name="Set-Cookie" exists-action="override">
                         <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                     </set-header>
-                    <set-body>@($"{(string)context.Variables["state"]} != {(string)context.Variables["expected-state"]}")</set-body>
+                    <!-- <set-body>@($"{(string)context.Variables["state"]} != {(string)context.Variables["expected-state"]}")</set-body> -->
                 </return-response>
             </otherwise>
         </choose>
