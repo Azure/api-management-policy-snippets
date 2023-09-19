@@ -123,7 +123,7 @@
                                 <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT")</value>
                             </set-header>
                             <set-header name="Set-Cookie" exists-action="append">
-                                <value>@($"{{CookiePrefix}}={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}")</value>
+                                <value>@($"{{CookiePrefix}}={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}; Secure; HttpOnly")</value>
                             </set-header>
                             <set-header name="Location" exists-action="override">
                                 <value>@((string)context.Variables["expected-state"])</value>
