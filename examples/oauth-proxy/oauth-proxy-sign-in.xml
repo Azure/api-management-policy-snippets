@@ -11,9 +11,17 @@
             </when>
             <otherwise>
                 <choose>
+                    <!-- Assert redirect starts with '/'
+                    This would create a redirect loop. Let's not allow this -->
+                    <when condition="@(!((string)context.Variables["redirect"]).StartsWith("/", StringComparison.InvariantCultureIgnoreCase))">
+                        <return-response>
+                            <set-status code="400" reason="Bad Request" />
+                            <set-body>Invalid redirect</set-body>
+                        </return-response>
+                    </when>
                     <!-- Check if the redirect is to one of the oauth endpoints. 
                     This would create a redirect loop. Let's not allow this -->
-                    <when condition="@(new Uri((string)context.Variables["redirect"]).AbsolutePath.StartsWith("/oauth", StringComparison.InvariantCultureIgnoreCase))">
+                    <when condition="@(((string)context.Variables["redirect"]).StartsWith("/oauth", StringComparison.InvariantCultureIgnoreCase))">
                         <return-response>
                             <set-status code="400" reason="Bad Request" />
                             <set-body>Invalid redirect</set-body>
@@ -39,7 +47,16 @@
                         <cache-store-value key="@($"signin-{(string)context.Variables["cookie"]}-nonce")" value="@((string)context.Variables["nonceRaw"])" duration="300" />
                         <cache-store-value key="@($"signin-{(string)context.Variables["cookie"]}-code-challenge")" value="@((string)context.Variables["codeChallenge"])" duration="300" />
 
-                        <set-variable name="oauth-proxy-callback" value="@(Uri.EscapeDataString($"https://{context.Request.OriginalUrl.Host}/oauth/callback"))" />
+                        <!-- look for x-forwarded header in-case there's a layer-7 reverse proxy in-front of us  -->
+                        <set-variable name="oauth-proxy-callback" value="@{
+                            var forwardedHost = (string)context.Request.Headers.GetValueOrDefault("X-Forwarded-Host", context.Request.OriginalUrl.Host);
+                            var forwardedPort = (string)context.Request.Headers.GetValueOrDefault("X-Forwarded-Port", "");
+                            var port = forwardedPort == "" ? 443 : int.Parse(forwardedPort);
+
+                            //construct the expected redirect. If the port is 443, then don't add it on as we hardcode https
+                            return $"https://{forwardedHost}{(port != 443 ? $":{port}" : "")}/oauth/callback";
+                        }" />
+
                         <set-variable name="state" value="@(Uri.EscapeDataString((string)context.Variables["stateRaw"]))" />
                         <set-variable name="nonce" value="@(Uri.EscapeDataString((string)context.Variables["nonceRaw"]))" />
 
