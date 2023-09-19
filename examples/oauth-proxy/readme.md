@@ -124,12 +124,17 @@ This fragment must set a variable called ```idpTokenEndpoint``` where we can POS
 This policy initiates an OIDC 3-legged sign-in flow.
 
 ### Steps
+- Checks for a valid redirect on the incoming URL
+- Creates state, nonce, and code-challenges which are stored in Redis
+- Uses the ```oauth-proxy-construct-authorization-redirect-fragment``` to construct the authorisation request
+- Returns a cookie with a lookup the the above state, nonce and code-challenge
+- 302 Redirects the browser to initiate the front-channel sign-in.
 
 ### Required QueryString Values
 
 | Query String key | Purpose |
 | -- | -- |
-| redirect | Fully qualified URL to redirect to after a successful sign-in flow |
+| redirect | Url to redirect to after a successful sign-in flow. This must be a root path beginning with '/'.  |
 
 ## oauth-proxy-callback
 > Implemented by [oauth-proxy-callback.xml](./oauth-proxy-callback.xml)
