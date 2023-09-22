@@ -24,9 +24,9 @@
 			<set-header name="Set-Cookie" exists-action="override">
 				<value>
                 @{
-					var outboundCookies = context.Response.Headers.ContainsKey("cookie") 
+					var outboundCookies = context.Response.Headers.ContainsKey("Set-Cookie") 
 						? context.Response.Headers
-							.GetValueOrDefault("cookie", "")
+							.GetValueOrDefault("Set-Cookie", "")
 							.Split(';')
 							.Select(x => x.Trim())
 							.Where(x => x != string.Empty)
