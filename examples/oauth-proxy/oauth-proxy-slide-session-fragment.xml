@@ -19,8 +19,24 @@
 				return $"{Convert.ToBase64String(encryptedCookie)}.{ivString}.{key}";
 			}" />
 
+			<!-- if there's an existing cookie then we just want to blat any cookies with {{CookiePrefix}} -->
+			<!-- we don't want to override the whole header, but we also don't want to allow the downstream to provide a cookie called {{CookiePrefix}}  -->
 			<set-header name="Set-Cookie" exists-action="override">
-				<value>@($"{{CookiePrefix}}={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}; Secure; HttpOnly")</value>
+				<value>
+                @{
+					var outboundCookies = context.Response.Headers.ContainsKey("cookie") 
+						? context.Response.Headers
+							.GetValueOrDefault("cookie", "")
+							.Split(';')
+							.Select(x => x.Trim())
+							.Where(x => x != string.Empty)
+							.Select(cookie => cookie.Split('='))
+							.Where(cookie => cookie[0] != "{{CookiePrefix}}")
+							.Aggregate("", (x, y) => $"{x}{y[0]} = {y[1]}; ")
+						: "";
+					return outboundCookies + $"{{CookiePrefix}}={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}; Secure; HttpOnly";
+				}
+                </value>
 			</set-header>
 		</when>
 	</choose>
