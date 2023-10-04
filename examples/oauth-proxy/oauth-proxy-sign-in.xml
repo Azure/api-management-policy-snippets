@@ -61,7 +61,7 @@
                         <set-variable name="nonce" value="@(Uri.EscapeDataString((string)context.Variables["nonceRaw"]))" />
 
                         <!-- Invoke fragment that will set the idpRedirect variable -->
-                        <include-fragment fragment-id="oauth-proxy-construct-authorization-redirect" />
+                        <include-fragment fragment-id="oauth-proxy-construct-authorization-redirect-fragment" />
 
                         <return-response>
                             <set-status code="302" />
