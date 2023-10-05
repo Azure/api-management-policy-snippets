@@ -18,6 +18,15 @@
 				</set-header>
 			</return-response>
 		</when>
+		<!-- Cookie malformed. Redirect to the sign-in endpoint -->
+		<when condition="@(((string)context.Variables["encryptedIncomingFullSessionCookie"]).Split('.').Length != 3)">
+			<return-response>
+				<set-status code="302" />
+				<set-header name="Location" exists-action="override">
+					<value>@($"/oauth/signin?redirect={(string)context.Variables["redirect"]}")</value>
+				</set-header>
+			</return-response>
+		</when>
 	</choose>
 
 	<!-- get the IV from cache, and decrypt the contents of the cookie -->
