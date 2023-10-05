@@ -19,11 +19,10 @@
 				return $"{Convert.ToBase64String(encryptedCookie)}.{ivString}.{key}";
 			}" />
 
+            <!-- add the new session cookie to the response -->
 			<set-header name="Set-Cookie" exists-action="append">
-				<value>@($"{{CookiePrefix}}={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}; Secure; HttpOnly")</value>
+				<value>@($"{{CookiePrefix}}={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}; Secure; HttpOnly" )</value>
 			</set-header>
-
-		
 		</when>
 	</choose>
 </fragment>

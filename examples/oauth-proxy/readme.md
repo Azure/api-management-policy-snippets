@@ -50,7 +50,7 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 ```xml
 <policies>
     <inbound>
-        <include-fragment fragment-id="oauth-proxy-token-endpoint" />
+        <include-fragment fragment-id="oauth-proxy-token-endpoint-fragment" />
         <include-fragment fragment-id="oauth-proxy-session-fragment" />
         <!-- Adds the following headers to the downstream request: 
             
