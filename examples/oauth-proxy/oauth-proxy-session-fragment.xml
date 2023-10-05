@@ -48,14 +48,30 @@
 
 	<!-- next step is to decrypt the cookie. This will yield an IV that can decrypt the tokens, and a timestamp-->
 	<set-variable name="incomingFullSessionCookie" value="@{
-		var cookieBytes = Convert.FromBase64String(((string)context.Variables["encryptedCookie"]));
-		var iv = Guid.Parse((string)context.Variables["ivCookie"]).ToByteArray();
-		var key1 = Convert.FromBase64String("{{CookieEncryptionKey1}}");
-		var key2 = Convert.FromBase64String("{{CookieEncryptionKey2}}");
-		var key = (string)context.Variables["cookieKey"]  == "1" ? key1 : key2;
-		var decryptedBytes = cookieBytes.Decrypt("Aes", key, iv);
-        return Encoding.UTF8.GetString(decryptedBytes);
+		try {
+			var cookieBytes = Convert.FromBase64String(((string)context.Variables["encryptedCookie"]));
+			var iv = Guid.Parse((string)context.Variables["ivCookie"]).ToByteArray();
+			var key1 = Convert.FromBase64String("{{CookieEncryptionKey1}}");
+			var key2 = Convert.FromBase64String("{{CookieEncryptionKey2}}");
+			var key = (string)context.Variables["cookieKey"]  == "1" ? key1 : key2;
+			var decryptedBytes = cookieBytes.Decrypt("Aes", key, iv);
+			return Encoding.UTF8.GetString(decryptedBytes);
+		} catch (Exception e) {
+			return "";
+		}
 	}" />
+
+	<choose>
+		<!-- Failed to decrypt the incoming cookie -->
+		<when condition="@(((string)context.Variables["incomingFullSessionCookie"]) == string.Empty)">
+			<return-response>
+				<set-status code="302" />
+				<set-header name="Location" exists-action="override">
+					<value>@($"/oauth/signin?redirect={(string)context.Variables["redirect"]}")</value>
+				</set-header>
+			</return-response>
+		</when>
+	</choose>
 
 	<!-- The cookies second part has the key to the cache where we have stored the tokens / refresh times -->
 	<set-variable name="cacheKey" value="@(((string)context.Variables["incomingFullSessionCookie"]).Split('.')[0])" />
