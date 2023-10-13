@@ -1,0 +1,20 @@
+<fragment>
+	<!-- Construct a variable called 'idpRedirect' to start the authorization flow  -->
+    <!-- Ensure to add the 'code-challenge-sha256', 'state', and 'nonce' to your request -->
+    <!-- The redirect is in the variable 'oauth-proxy-callback' -->
+    <!-- This example is for AAD. Change as required for your IdP -->
+
+    <!-- Standard OIDC redirect flow. Currently AAD specific, but easy to tweak to your provider of choice -->
+    <set-variable name="idpRedirect" value="@{
+        return "https://login.microsoftonline.com/{{TenantId}}/oauth2/v2.0/authorize" +
+                "?client_id={{ClientId}}&response_type=code&" + 
+                $"redirect_uri={context.Variables["oauth-proxy-callback"]}&" +
+                "response_mode=form_post&" + 
+                $"scope={Uri.EscapeDataString("openid profile offline_access {{AdditionalScopes}}")}&" + 
+                $"state={context.Variables["state"]}&" + 
+                $"nonce={context.Variables["nonce"]}&" + 
+                $"code_challenge={(string)context.Variables["codeChallengeSha256"]}&" + 
+                "code_challenge_method=S256";
+    }" />
+
+</fragment>

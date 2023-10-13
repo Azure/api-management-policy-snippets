@@ -1,0 +1,90 @@
+<policies>
+    <inbound>
+        <set-variable name="redirect" value="@(Uri.UnescapeDataString(context.Request.Url.Query.GetValueOrDefault("redirect", string.Empty)))" />
+        <choose>
+            <!-- Without a redirect we don't know where to send them back to. Error out the flow -->
+            <when condition="@(context.Variables["redirect"] == string.Empty)">
+                <return-response>
+                    <set-status code="400" reason="Bad Request" />
+                    <set-body>Missing redirect parameter</set-body>
+                </return-response>
+            </when>
+            <otherwise>
+                <choose>
+                    <!-- Assert redirect starts with '/'
+                    This would create a redirect loop. Let's not allow this -->
+                    <when condition="@(!((string)context.Variables["redirect"]).StartsWith("/", StringComparison.InvariantCultureIgnoreCase))">
+                        <return-response>
+                            <set-status code="400" reason="Bad Request" />
+                            <set-body>Invalid redirect</set-body>
+                        </return-response>
+                    </when>
+                    <!-- Check if the redirect is to one of the oauth endpoints. 
+                    This would create a redirect loop. Let's not allow this -->
+                    <when condition="@(((string)context.Variables["redirect"]).StartsWith("/oauth", StringComparison.InvariantCultureIgnoreCase))">
+                        <return-response>
+                            <set-status code="400" reason="Bad Request" />
+                            <set-body>Invalid redirect</set-body>
+                        </return-response>
+                    </when>
+                    <otherwise>
+                        <!-- create 2 secrets to hold the state / nonce and a unique cookie -->
+                        <set-variable name="stateRaw" value="@(Guid.NewGuid().ToString() + Guid.NewGuid().ToString())" />
+                        <set-variable name="nonceRaw" value="@(Guid.NewGuid().ToString() + Guid.NewGuid().ToString())" />
+                        <set-variable name="codeChallenge" value="@(Guid.NewGuid().ToString() + Guid.NewGuid().ToString())" />
+
+                        <!-- Build code-challenge by base-64 url encoding as described here: https://datatracker.ietf.org/doc/html/rfc7636#page-14 -->
+                        <set-variable name="codeChallengeSha256" value="@(Convert.ToBase64String(SHA256.Create().ComputeHash(Encoding.UTF8.GetBytes((string)context.Variables["codeChallenge"]))).Split('=')[0].Replace('+', '-').Replace('/', '_'))" />
+
+                        <!-- Create a unique guid to represent this particular sign-in flow 
+                        We will look for this when the IdP responds with a code. That will help
+                        correlate this call with the callback -->
+                        <set-variable name="cookie" value="@(Guid.NewGuid().ToString())" />
+
+                        <!-- Store the state and the nonce in the cache. We'll need to confirm these for security purposes when the corresponding callback appears to complete the flow -->
+                        <!-- Use the state to store the redirect. We could send it in the round-trip, but let's keep it here for now -->
+                        <cache-store-value key="@($"signin-{(string)context.Variables["cookie"]}-state")" value="@((string)context.Variables["redirect"])" duration="300" />
+                        <cache-store-value key="@($"signin-{(string)context.Variables["cookie"]}-nonce")" value="@((string)context.Variables["nonceRaw"])" duration="300" />
+                        <cache-store-value key="@($"signin-{(string)context.Variables["cookie"]}-code-challenge")" value="@((string)context.Variables["codeChallenge"])" duration="300" />
+
+                        <!-- look for x-forwarded header in-case there's a layer-7 reverse proxy in-front of us  -->
+                        <set-variable name="oauth-proxy-callback" value="@{
+                            var forwardedHost = (string)context.Request.Headers.GetValueOrDefault("X-Forwarded-Host", context.Request.OriginalUrl.Host);
+                            var forwardedPort = (string)context.Request.Headers.GetValueOrDefault("X-Forwarded-Port", "");
+                            var port = forwardedPort == "" ? 443 : int.Parse(forwardedPort);
+
+                            //construct the expected redirect. If the port is 443, then don't add it on as we hardcode https
+                            return $"https://{forwardedHost}{(port != 443 ? $":{port}" : "")}/oauth/callback";
+                        }" />
+
+                        <set-variable name="state" value="@(Uri.EscapeDataString((string)context.Variables["stateRaw"]))" />
+                        <set-variable name="nonce" value="@(Uri.EscapeDataString((string)context.Variables["nonceRaw"]))" />
+
+                        <!-- Invoke fragment that will set the idpRedirect variable -->
+                        <include-fragment fragment-id="oauth-proxy-construct-authorization-redirect-fragment" />
+
+                        <return-response>
+                            <set-status code="302" />
+                            <set-header name="Location" exists-action="override">
+                                <value>@((string)context.Variables["idpRedirect"])</value>
+                            </set-header>
+                            <set-header name="Set-Cookie" exists-action="override">
+                                <value>@($"{{CookiePrefix}}-{(string)context.Variables["state"]}={(string)context.Variables["cookie"]}; Secure; SameSite=None; Path=/; Expires={DateTimeOffset.Now.AddSeconds(300).ToString("R")}; Secure; HttpOnly")</value>
+                            </set-header>
+                        </return-response>
+                    </otherwise>
+                </choose>
+            </otherwise>
+        </choose>
+        <base />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

@@ -1,0 +1,28 @@
+<fragment>
+
+	<!-- slide the cookie -->
+	<choose>
+		<when condition="@(context.Variables.ContainsKey("cacheKey"))">
+			<set-variable name="cookie-expiry" value="@(DateTimeOffset.UtcNow.AddSeconds({{SessionCookieExpirationInSeconds}}).ToUnixTimeMilliseconds())" />
+			<set-variable name="cookie-prefix" value="@($"{(string)context.Variables["cacheKey"]}.{(string)context.Variables["ivTokens"]}.{(long)context.Variables["cookie-expiry"]}")" />
+
+			<!-- encrypt this using the cookie-iv-->
+			<set-variable name="encryptedCookie" value="@{
+				var cookie = Encoding.UTF8.GetBytes((string)context.Variables["cookie-prefix"]);
+				var ivString = (string)context.Variables["ivCookie"];
+				var iv = Guid.Parse(ivString).ToByteArray();
+				var key1 = Convert.FromBase64String("{{CookieEncryptionKey1}}");
+				var key2 = Convert.FromBase64String("{{CookieEncryptionKey2}}");
+				var key = {{CookieEncryptionKey}};
+				var encryptionKey = key == 1 ? key1 : key2;
+				var encryptedCookie = cookie.Encrypt("Aes", encryptionKey, iv);
+				return $"{Convert.ToBase64String(encryptedCookie)}.{ivString}.{key}";
+			}" />
+
+            <!-- add the new session cookie to the response -->
+			<set-header name="Set-Cookie" exists-action="append">
+				<value>@($"{{CookiePrefix}}={(string)context.Variables["encryptedCookie"]}; SameSite=Lax; secure; path=/; expires={DateTimeOffset.FromUnixTimeMilliseconds((long)context.Variables["cookie-expiry"]).ToString("R")}; Secure; HttpOnly" )</value>
+			</set-header>
+		</when>
+	</choose>
+</fragment>
