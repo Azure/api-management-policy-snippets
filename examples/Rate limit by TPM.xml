@@ -1,0 +1,45 @@
+
+<policies>
+	<inbound>
+		<base />
+		<!--Priority Management Based on Subscription Keys:
+			Applies quotas based on the subscription key. -->
+		<choose>
+			<when condition="@(context.Subscription.Id == "subscription1")">
+				<!-- Rate limit by TPM 
+				Each subscription has its own TPM counter ('subscription1TPM' in this case) that tracks total tokens used per request. 
+				If the response status is 200, the counter increases by the token count obtained in the response body. 
+				If the counter hits the 500 TPM limit within 60 seconds, the request will not be forwarded to the backend.
+				Clients recieve 429 as the response status code.
+				 -->
+				<rate-limit-by-key calls="500" renewal-period="60" counter-key="@(String.Concat(context.Subscription.Id,"TPM"))" increment-condition="@(context.Response.StatusCode >= 200 && context.Response.StatusCode < 400)" increment-count="@(context.Response.Body.As<JObject>(true).SelectToken("usage.total_tokens").ToObject<int>())" remaining-calls-header-name="remainingTPM" total-calls-header-name="totalTPM" />
+				<!-- Rate limit by RPM
+				Each subscription has its own RPM counter ('subscription1RPM' in this case) that tracks total requests per minute.
+				If the response status is 200, the counter increases by 1.
+				If the counter hits the 3 RPM limit within 60 seconds, the request will not be forwarded to the backend.
+				Clients recieve 429 as the response status code.
+				-->
+				<rate-limit-by-key calls="5" renewal-period="60" counter-key="@(String.Concat(context.Subscription.Id,"RPM"))" increment-condition="@(context.Response.StatusCode >= 200 && context.Response.StatusCode < 400)" remaining-calls-header-name="remainingRPM" total-calls-header-name="totalRPM" />
+				<set-variable name="BusinessUnitName" value="EnterpriseEndUserChatBotMobile" />
+				<quota-by-key calls="100" renewal-period="300" counter-key="@(context.Subscription.Id)" increment-condition="@(context.Response.StatusCode >= 200 && context.Response.StatusCode < 400)" />
+			</when>
+			<when condition="@(context.Subscription.Name == "subscription2")">
+				<!-- Rate limit by TPM -->
+				<rate-limit-by-key calls="200" renewal-period="60" counter-key="@(String.Concat(context.Subscription.Id,"TPM"))" increment-condition="@(context.Response.StatusCode >= 200 && context.Response.StatusCode < 400)" increment-count="@(context.Response.Body.As<JObject>(true).SelectToken("usage.total_tokens").ToObject<int>())" remaining-calls-header-name="remainingTPM" total-calls-header-name="totalTPM" />
+				<!-- Rate limit by RPM -->
+				<rate-limit-by-key calls="3" renewal-period="60" counter-key="@(String.Concat(context.Subscription.Id,"RPM"))" increment-condition="@(context.Response.StatusCode >= 200 && context.Response.StatusCode < 400)" remaining-calls-header-name="remainingRPM" total-calls-header-name="totalRPM" />
+				<set-variable name="BusinessUnitName" value="EnterpriseEndUserChatBotWeb" />
+				<quota-by-key calls="100" renewal-period="300" counter-key="@(context.Subscription.Id)" increment-condition="@(context.Response.StatusCode >= 200 && context.Response.StatusCode < 400)" />
+			</when>
+			<otherwise>
+				<rate-limit-by-key calls="5" renewal-period="60" counter-key="@(context.Subscription.Id)" />
+				<set-variable name="BusinessUnitName" value="OtherSmallProducts" />
+				<quota-by-key calls="100" renewal-period="3600" counter-key="@(context.Subscription.Id)" increment-condition="@(context.Response.StatusCode >= 200 && context.Response.StatusCode < 400)" />
+			</otherwise>
+		</choose>
+	</inbound>
+	<backend>
+		<!--The backend section inherits the base behavior without additional policies.-->
+		<base />
+	</backend>
+</policies>
