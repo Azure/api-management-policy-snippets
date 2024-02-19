@@ -75,8 +75,6 @@
                         <set-variable name="refreshToken" value="@( ((JObject)context.Variables["tokenResponse"])["refresh_token"].ToString())" />
                         <set-variable name="idtoken" value="@( ((JObject)context.Variables["tokenResponse"])["id_token"].ToString())" />
 
-    					<include-fragment fragment-id="oauth-proxy-validate-token-fragment" />
-
                         <!-- The plan -->
                         <!-- Cookie <encryptedPayload(CookieEncryptionKey, iv1, timestamp)>.iv2Lookup -->
                         <!-- Cache: iv2Lookup <iv2> -->

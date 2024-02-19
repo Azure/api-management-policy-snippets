@@ -198,8 +198,6 @@
 					<set-variable name="refreshToken" value="@( ((JObject)context.Variables["tokenResponse"])["refresh_token"].ToString())" />
 					<set-variable name="idtoken" value="@( ((JObject)context.Variables["tokenResponse"])["id_token"].ToString())" />
 
-					<include-fragment fragment-id="oauth-proxy-validate-token-fragment" />
-
 					<!-- Encrypt the tokenResponse variable, and store that in cache. We'll handle the refresh token separately as it lasts longer -->
 					<set-variable name="encryptedAccessToken" value="@{
 						var token = Encoding.UTF8.GetBytes((string)context.Variables["accessToken"]);
