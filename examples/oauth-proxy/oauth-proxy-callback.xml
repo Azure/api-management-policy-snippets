@@ -105,6 +105,16 @@
                             var encryptedToken = token.Encrypt("Aes", encryptionKey, iv);
                             return $"{Convert.ToBase64String(encryptedToken)}.{key}";
                         }" />
+                        <set-variable name="encryptedRefreshToken" value="@{
+                            var token = Encoding.UTF8.GetBytes((string)context.Variables["refreshToken"]);
+                            var iv = Guid.Parse((string)context.Variables["ivTokens"]).ToByteArray();
+                            var key1 = Convert.FromBase64String("{{TokenEncryptionKey1}}");
+                            var key2 = Convert.FromBase64String("{{TokenEncryptionKey2}}");
+                            var key = {{TokenEncryptionKey}};
+                            var encryptionKey = key == 1 ? key1 : key2;
+                            var encryptedToken = token.Encrypt("Aes", encryptionKey, iv);
+                            return $"{Convert.ToBase64String(encryptedToken)}.{key}";
+                        }" />
                         <!-- Store the encrypted token in the cache. -->
                         <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-accessToken")" value="@((string)context.Variables["encryptedAccessToken"])" duration="@((int)context.Variables["refreshTime"])" />
                         <!-- Store the encrypted token in the cache. -->
@@ -112,7 +122,7 @@
                         <!-- Store another refresh time... We'll refresh the tokens half way to their expiry date. Try to avoid last minute timing errors -->
                         <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshAt")" value="@(DateTimeOffset.UtcNow.AddSeconds((int)context.Variables["refreshTime"] / 2).ToUnixTimeSeconds())" duration="@((int)context.Variables["refreshTime"])" />
                         <!-- Store the refresh token separately. We probably want to cache it for longer than the token (avg user session length is a good idea) -->
-                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" value="@((string)context.Variables["refreshToken"])" duration="{{RefreshTokenExpirationInSeconds}}" />
+                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" value="@((string)context.Variables["encryptedRefreshToken"])" duration="{{RefreshTokenExpirationInSeconds}}" />
                         <!-- Get the cookie details -->
                         <set-variable name="cookie-expiry" value="@(DateTimeOffset.UtcNow.AddSeconds({{SessionCookieExpirationInSeconds}}).ToUnixTimeMilliseconds())" />
                         <set-variable name="cookie-prefix" value="@($"{(string)context.Variables["cacheKey"]}.{(string)context.Variables["ivTokens"]}.{(long)context.Variables["cookie-expiry"]}")" />

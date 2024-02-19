@@ -34,16 +34,17 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
 | Fragment File Name | Fragment Name | Purpose | How to use |
 | -- | -- | -- | -- |
 | [oauth-proxy-token-endpoint-fragment.xml](oauth-proxy-token-endpoint-fragment.xml) | oauth-proxy-token-endpoint-fragment | Identifies the token endpoint to obtains tokens from | You **must** place this fragment above the ```oauth-proxy-session-fragment``` as it sets a required variable used by other policies.  |
+| [oauth-proxy-validate-token-fragment.xml](oauth-proxy-validate-token-fragment.xml) | oauth-proxy-validate-token-fragment | Custom token validation policy | Place it after the ```oauth-proxy-session-fragment``` to provide an additional JWT validation step on the access-token returned by your IdP. The reference implementation uses the  [validate-azure-ad-token](https://learn.microsoft.com/en-us/azure/api-management/validate-azure-ad-token-policy) policy. For other IdPs use the [validate-jwt](https://learn.microsoft.com/en-us/azure/api-management/validate-jwt-policy) policy. |
 | [oauth-proxy-session-fragment.xml](oauth-proxy-session-fragment.xml) | oauth-proxy-session-fragment | A fragment that checks for a Session cookie, and either initiate a sign-in flow, or attaches valid tokens to the ongoing request. This will refresh tokens if necessary | Place inside the ```<inbound>``` policy of any Web Apps you want to protect with a session cookie |
 | [oauth-proxy-construct-authorization-redirect-fragment.xml](oauth-proxy-construct-authorization-redirect-fragment.xml) | oauth-proxy-construct-authorization-redirect-fragment | A fragment that constructs an OIDC Authorize request to your endpoint | If using a different IdP, use ```oauth-proxy-construct-authorization-redirect.xml``` as a guide to configuring for your IdP |
 | [oauth-proxy-slide-session-fragment.xml](oauth-proxy-slide-session-fragment.xml) | oauth-proxy-slide-session-fragment | A fragment that slides any issued session cookie | Place inside the ```<outbound>``` policy of any Web Apps you want to protect with a session cookie |
 
 ## Policies for Oidc Endpoints 
-| Policy Name | API path | Purpose | How to use |
-| -- | -- | -- | -- |
-| [oauth-proxy-sign-in.xml](oauth-proxy-sign-in.xml) | ```/oauth/signin``` | Initiates a front-channel code / pkce flow with an IdP  | Configure this as the 'signin' operation within an API called 'OAuth' |
-| [oauth-proxy-callback.xml](oauth-proxy-callback.xml) | ```/oauth/callback``` | Handles an IdP's callback in response to a sign-in request  | Configure this as the 'callback' operation within an API called 'OAuth' |
-| [oauth-proxy-sign-out.xml](oauth-proxy-sign-out.xml) | ```/oauth/signout``` | Clears a user's session cookie, and removes all token data from the cache.  | Configure this as the 'signout' operation within an API called 'OAuth' |
+| Policy Name | API path | Method | Purpose | How to use |
+| -- | -- | -- | -- | -- |
+| [oauth-proxy-sign-in.xml](oauth-proxy-sign-in.xml) | ```/oauth/signin``` | GET | Initiates a front-channel code / pkce flow with an IdP  | Configure this as the 'signin' operation within an API called 'OAuth' |
+| [oauth-proxy-callback.xml](oauth-proxy-callback.xml) | ```/oauth/callback``` | POST | Handles an IdP's callback in response to a sign-in request  | Configure this as the 'callback' operation within an API called 'OAuth' |
+| [oauth-proxy-sign-out.xml](oauth-proxy-sign-out.xml) | ```/oauth/signout``` | GET | Clears a user's session cookie, and removes all token data from the cache.  | Configure this as the 'signout' operation within an API called 'OAuth' |
 
 ## Simple policy to protect Web Applications
 
@@ -52,6 +53,7 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
     <inbound>
         <include-fragment fragment-id="oauth-proxy-token-endpoint-fragment" />
         <include-fragment fragment-id="oauth-proxy-session-fragment" />
+        <include-fragment fragment-id="oauth-proxy-validate-token-fragment" />
         <!-- Adds the following headers to the downstream request: 
             
             Authorization: Bearer {access-token}
