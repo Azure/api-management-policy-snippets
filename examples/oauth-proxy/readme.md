@@ -54,6 +54,7 @@ The policies in this folder provide support for an OAuth Proxy that works in a s
         <include-fragment fragment-id="oauth-proxy-token-endpoint-fragment" />
         <include-fragment fragment-id="oauth-proxy-session-fragment" />
         <include-fragment fragment-id="oauth-proxy-validate-token-fragment" />
+        
         <!-- Adds the following headers to the downstream request: 
             
             Authorization: Bearer {access-token}
