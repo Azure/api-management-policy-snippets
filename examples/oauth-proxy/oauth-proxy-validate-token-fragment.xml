@@ -2,7 +2,7 @@
     
     <!-- IdP provider specific validation of the access-tokens returned by the IdP -->
     <validate-azure-ad-token 
-        tenantId="{{TenantId}}"
+        tenant-id="{{TenantId}}"
         token-value="@((string)context.Variables["refreshToken"])">
         <client-application-ids>
             <application-id>{{ClientId}}</application-id>
