@@ -1,7 +1,7 @@
 <!-- The policy defined in this file demonstrates how to mask an asynchronous API endpoint as if it is an synchronous one. -->
 <!-- This is useful when modernizing APIs but some clients that call the API cannot be updated to the new behavior. -->
 
-<!-- API used for this example is an Azure Logic Apps (request/resposne), in which retruns HTTP 202 status code, -->
+<!-- API used for this example is an Azure Logic Apps (request/response), in which returns HTTP 202 status code, -->
 <!-- and location header to retrieve the terminal payload. Retry count and interval is fixed  in this example but can also be customized. -->
 
 <policies>
