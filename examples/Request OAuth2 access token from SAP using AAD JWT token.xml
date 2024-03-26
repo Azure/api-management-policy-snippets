@@ -37,6 +37,10 @@
                 </claim>
             </required-claims>
         </validate-jwt>
+        <!-- avoid "br" encoding, because it breaks domain rewrite on outbound. SAP OData doesn't support br -->
+        <set-header name="Accept-Encoding" exists-action="override">
+            <value>gzip, deflate</value>
+        </set-header>
         <set-variable name="APIMAADRegisteredAppClientId" value="{{APIMAADRegisteredAppClientId}}" />
         <set-variable name="APIMAADRegisteredAppClientSecret" value="{{APIMAADRegisteredAppClientSecret}}" />
         <set-variable name="AADSAPResource" value="{{AADSAPResource}}" />
