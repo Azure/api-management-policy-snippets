@@ -27,7 +27,7 @@
                     var limit=response.GetValue("limit").Value<int>();
                     var offset=response.GetValue("offset").Value<int>();
                     var nextOffset=offset+count;
-                    var nextLink=$"https://bteapim.azure-api.net/oracle-clone/fscmRestApi/resources/latest/receivablesInvoices?offset={nextOffset}&limit={limit}";
+                    var nextLink=$"https://xxxxx.azure-api.net/oracle-clone/fscmRestApi/resources/latest/receivablesInvoices?offset={nextOffset}&limit={limit}";
                     response.Add(nextLinkFieldName,nextLink);
                 }
                 return response.ToString();
