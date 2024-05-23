@@ -1,8 +1,8 @@
 <!-- The policy defined in this file provides an best-practice implementation of OAuth2SAMLBearerAssertion for SAP OData services.
-     The mechanism to map an IdP associated user (in this case Azure Active Directory - AAD) to a SAP backend user
+     The mechanism to map an IdP associated user (in this case Microsoft Entra ID (formerly Azure Active Directory - AAD) to a SAP backend user
      is often referred to as SAP Principal Propagation.
 -->
-<!-- The policy shows how to exchange an AAD issued access token for an SAP issued Bearer token and forward it to the backend.
+<!-- The policy shows how to exchange an Entra ID issued access token for an SAP issued Bearer token and forward it to the backend.
      In addition to that it caches the tokens, so that clients can focus on app logic rather than SAP Principal Propagation and to scale the approach.
      Furthermore, it handles the X-CSRF-Token handling for update requests. -->
 <!-- Find further details in our blog series on the SAP community: https://blogs.sap.com/2021/08/12/.net-speaks-odata-too-how-to-implement-azure-app-service-with-sap-odata-gateway/
@@ -29,7 +29,8 @@
                 <audience>api://{{APIMAADRegisteredAppClientId}}</audience>
             </audiences>
             <issuers>
-                <issuer>https://sts.windows.net/{{AADTenantId}}/</issuer>
+                <!-- for v1 endpoints use https://sts.windows.net/{{AADTenantId}}/ -->
+                <issuer>https://login.microsoftonline.com/{{AADTenantId}}/v2.0</issuer>
             </issuers>
             <required-claims>
                 <claim name="scp" match="all" separator=" ">
@@ -37,6 +38,10 @@
                 </claim>
             </required-claims>
         </validate-jwt>
+        <!-- avoid "br" encoding, because it breaks domain rewrite on outbound. SAP OData doesn't support br -->
+        <set-header name="Accept-Encoding" exists-action="override">
+            <value>gzip, deflate</value>
+        </set-header>
         <set-variable name="APIMAADRegisteredAppClientId" value="{{APIMAADRegisteredAppClientId}}" />
         <set-variable name="APIMAADRegisteredAppClientSecret" value="{{APIMAADRegisteredAppClientSecret}}" />
         <set-variable name="AADSAPResource" value="{{AADSAPResource}}" />
