@@ -1,0 +1,79 @@
+<!-- 
+  Organizations may wish to use multiple development or test environments in a single development or test Azure API Management instance. 
+  For example, `dev1`, `dev2`, `dev3`, etc. in the development environment, and `test1`, `test2`, `uat`, etc. in the test environment Azure API Management instances.
+
+  Through pragmatic usage of backends, properly segregated named values, and use of this Policy Fragment, you may achieve your desired functionality.
+
+  USAGE:
+  1. Create a new policy fragment named `set-env-variables` and copy the contents of this file.
+  2. If you are using a header such as `x-env` to explicitly pass in the environment to be used, leave the `x-env` code in place. If you don't use a header or use a different name, 
+     adjust accordingly.
+  3. If you must derive environment from the original request URL, make the necessary adjustments to explicitly map URL or substring of URL to an environment.
+  4. Create backends in a format similar to `<api-name>-<environment>`. For example: `products-dev1`
+  5. Create named values in a format similar to `<name>-<environment>`. For example: `timeout-test2`
+  6. Reference this policy fragment in the _ALL APIs_ section to set the environment variables for every API call: `<include-fragment fragment-id="set-env-variables" />`
+  7. Dynamically set backends based on the backend ID via : `<set-backend-service backend-id="@(context.Variables.GetValueOrDefault<string>("productsApiBackendId"))" />`
+  8. Use variable values derived from different named values per environment: `@(context.Variables.GetValueOrDefault<int>("timeout", 0))`
+
+  CAUTION:
+  - Please do not mix environments such as all logical dev and test environments accessing the same Azure API Management instance. This is confusing, prevents proper 
+    security boundaries, and can be precarious for your business APIs if misused.
+  - The more complex your logical environments are, the more challenging this will get to maintain. This is a pragmatic approach, not a best practice. Best practice
+    today would call for entirely separate Azure API Management instances. Once the Workspaces feature will be released, there will be a native avenue to address this need.    
+-->
+
+<fragment>
+  <!-- 1) Determine the environment to be used. -->
+  
+  <!-- 1-1) Check if a header named "x-env" is part of the request to explicitly identify the environment. -->
+	<set-variable name="env" value="@(context.Request.Headers.GetValueOrDefault("x-env", ""))" />
+	
+  <!-- 1-2) If the "x-env" header is empty, add steps to evaluate context.Request.OriginalUrl.Host. This could be based on a Regex is there's a pattern 
+       (for example, "dev1-api.contoso.com" yields "dev1") or it could be a <choose> statement like below to explicitly map Host to environment. 
+       The end result should be a value in the env variable. This could also be written in a policy expression. 
+  -->
+	<choose>
+		<when condition="@(context.Variables.GetValueOrDefault("env", "") == "")">
+			<choose>
+				<when condition="@(context.Request.OriginalUrl.Host == "dev1-apim.azure-api.net")">
+					<set-variable name="env" value="dev1" />
+				</when>
+				<otherwise></otherwise>
+			</choose>
+		</when>
+	</choose>
+
+  <!-- 2) Now that the environment has been determined, assign variables and backends. You can use 2-1), 2-2) or a combination of the two, if applicable. 
+          If no environment could be determined, throw an appropriate error or return a 500.-->  
+	<choose>
+		<when condition="@(context.Variables.GetValueOrDefault("env", "") != "")">
+			
+			<!-- 2-1) If there is no correlation between ID and environment or you need to assign Named Values, assign explicitly. Named value keys cannot be dynamically created via policy expressions. -->
+			<choose>
+				<when condition="@(context.Variables.GetValueOrDefault<string>("env") == "dev1")">
+					<set-variable name="productsApiBackendId" value="products-dev1" />
+					<set-variable name="timeout" value="{{timeout-dev1}}" />
+				</when>
+				<when condition="@(context.Variables.GetValueOrDefault<string>("env") == "dev2")">
+					<set-variable name="productsApiBackendId" value="products-dev2" />
+					<set-variable name="timeout" value="{{timeout-dev2}}" />
+				</when>
+				<when condition="@(context.Variables.GetValueOrDefault<string>("env") == "dev3")">
+					<set-variable name="productsApiBackendId" value="products-dev3" />
+					<set-variable name="timeout" value="{{timeout-dev3}}" />
+				</when>
+				<otherwise></otherwise>
+			</choose>
+      
+			<!-- 2-2) If there is a correlation between ID and environment for backend IDs, you can use policy expressions. -->
+			<set-variable name="productsApiBackendId" value="@("products-" + context.Variables.GetValueOrDefault<string>("env"))" />
+		</when>
+		<otherwise>
+			<!-- Determine what to do if an environment could not be found. Possibly return an error response from the policy fragment, throw an error, 
+            or let the API using the policy fragment check? -->
+			<return-response>
+				<set-status code="500" reason="Unsupported Environment" />
+			</return-response>
+		</otherwise>
+	</choose>
+</fragment>
