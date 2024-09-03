@@ -20,7 +20,7 @@
             then handle the error here along with any other error-handling.-->
             <when condition="@(context.LastError.Source == "validate-jwt")">
                 <return-response>
-                    <set-status code="@(context.Response.StatusCode" />
+                    <set-status code="@(context.Response.StatusCode)" />
                     <set-body>Unauthorized. Access token is missing or invalid.</set-body>
                 </return-response>
             </when>
