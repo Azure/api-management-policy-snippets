@@ -8,7 +8,7 @@
     and needs to be replaced with the actual policy name accordingly.
 
     Important Note: 
-    Altough this pattern works, we would do end up having 2 log entries now 
+    Although this pattern works, we would do end up having 2 log entries now 
     for the same request, since the request is now being replayed.
 -->
 <policies>
