@@ -74,10 +74,19 @@
                         <set-variable name="accessToken" value="@( ((JObject)context.Variables["tokenResponse"])["access_token"].ToString())" />
                         <set-variable name="refreshToken" value="@( ((JObject)context.Variables["tokenResponse"])["refresh_token"].ToString())" />
                         <set-variable name="idtoken" value="@( ((JObject)context.Variables["tokenResponse"])["id_token"].ToString())" />
+
                         <!-- The plan -->
-                        <!-- Cookie <encryptedPayload(CookieEncryptionKey, iv1, timestamp)>.iv2Lookup -->
-                        <!-- Cache: iv2Lookup <iv2> -->
-                        <!-- CachedTokens <encrypted(TokenEncryptionKey, iv2)>.tokens -->
+                        <!-- Encrypt all the tokens using the current TokenEncryptionKey value (as indicated by the named-value, TokenEncryptionKey). IV is a new Guid -->
+                        <!-- Store all of these in the APIM cache suffixed with '.1' or '.2' to indicate which TokenEncryptionKey was used -->
+                        <!-- The plain-text of the cookie is [cacheKey].[tokenIv].[cookieExpiry] -->
+                        <!-- Encrypt the cookie using the Cookie Encryption key, and another new Guid as the IV-->
+                        <!-- Return the cookie as [encrypted-plain-text].[cookieIv].[1|2] -->
+
+                        <!-- The IV for the tokens is only stored inside the cookie meaning no-one can decrypt the tokens without the cookie -->
+                        <!-- The tokens are not accessible to the client-apps meaning they cannot leak through a front channel -->
+                        <!-- The tokens are stored with information about which of the 2 possible keys encrypted them, allowing key refresh -->
+                        <!-- The cookie sent to the client also has information about which of the 2 possible keys encrypted it, allowing key refresh -->
+
                         <!-- create the IV used in encrypting the cookie. This is stored in our cache and looked up using the cache key -->
                         <set-variable name="ivCookie" value="@(Guid.NewGuid().ToString())" />
                         <!-- create the IV used in encrypting the tokens. We don't store this server side. It flows encrypted in cookies -->
@@ -105,6 +114,16 @@
                             var encryptedToken = token.Encrypt("Aes", encryptionKey, iv);
                             return $"{Convert.ToBase64String(encryptedToken)}.{key}";
                         }" />
+                        <set-variable name="encryptedRefreshToken" value="@{
+                            var token = Encoding.UTF8.GetBytes((string)context.Variables["refreshToken"]);
+                            var iv = Guid.Parse((string)context.Variables["ivTokens"]).ToByteArray();
+                            var key1 = Convert.FromBase64String("{{TokenEncryptionKey1}}");
+                            var key2 = Convert.FromBase64String("{{TokenEncryptionKey2}}");
+                            var key = {{TokenEncryptionKey}};
+                            var encryptionKey = key == 1 ? key1 : key2;
+                            var encryptedToken = token.Encrypt("Aes", encryptionKey, iv);
+                            return $"{Convert.ToBase64String(encryptedToken)}.{key}";
+                        }" />
                         <!-- Store the encrypted token in the cache. -->
                         <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-accessToken")" value="@((string)context.Variables["encryptedAccessToken"])" duration="@((int)context.Variables["refreshTime"])" />
                         <!-- Store the encrypted token in the cache. -->
@@ -112,7 +131,7 @@
                         <!-- Store another refresh time... We'll refresh the tokens half way to their expiry date. Try to avoid last minute timing errors -->
                         <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshAt")" value="@(DateTimeOffset.UtcNow.AddSeconds((int)context.Variables["refreshTime"] / 2).ToUnixTimeSeconds())" duration="@((int)context.Variables["refreshTime"])" />
                         <!-- Store the refresh token separately. We probably want to cache it for longer than the token (avg user session length is a good idea) -->
-                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" value="@((string)context.Variables["refreshToken"])" duration="{{RefreshTokenExpirationInSeconds}}" />
+                        <cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" value="@((string)context.Variables["encryptedRefreshToken"])" duration="{{RefreshTokenExpirationInSeconds}}" />
                         <!-- Get the cookie details -->
                         <set-variable name="cookie-expiry" value="@(DateTimeOffset.UtcNow.AddSeconds({{SessionCookieExpirationInSeconds}}).ToUnixTimeMilliseconds())" />
                         <set-variable name="cookie-prefix" value="@($"{(string)context.Variables["cacheKey"]}.{(string)context.Variables["ivTokens"]}.{(long)context.Variables["cookie-expiry"]}")" />
