@@ -1,5 +1,6 @@
 <!--
-    This policy sample demonstrates a pattern of replaying the request. For eg: One scenario could be when we are using quota and rate limit policies,for some special tier consumers, 
+    This policy sample demonstrates a pattern of replaying the request. 
+    For eg: One scenario could be when we are using quota and rate limit policies,for some special tier consumers, 
     we would still like to serve the request if there was a quota error but this time with a low-end backend.
     
     The "example-policy-name" string is in the when condition is just for example and needs to be replaced with the actual policy name accordingly.
