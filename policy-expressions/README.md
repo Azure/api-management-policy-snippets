@@ -77,7 +77,7 @@ return body.ToString();
 
 **Read claim from bearer token**
 ```c#
-context.Request.Headers.GetValueOrDefault("Authorization")?.Split(' ')?[1].AsJwt()?.Claims["claim-name"].FirstOrDefault()
+context.Request.Headers.GetValueOrDefault("Authorization").AsJwt()?.Claims["claim-name"].FirstOrDefault()
 ```
 
 ## Interact with client certificates
