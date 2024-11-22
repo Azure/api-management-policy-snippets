@@ -1,5 +1,9 @@
 # Azure API Management Policy Snippets
 
+# Policy Toolkit
+
+[Azure API Management policy toolkit](https://github.com/Azure/azure-api-management-policy-toolkit) is a set of libraries and tools for authoring policy documents for Azure API Management. The toolkit was designed to help create and test policy documents with complex expressions.
+
 # Examples
 
 The `examples/` folder contains policy examples contributed by the product team and the user community. The samples are meant to be re-used verbatim, provide inspiration or serve as learning aids. Some of them are parameterized using [Named Values](https://docs.microsoft.com/en-us/azure/api-management/api-management-howto-properties) (formerly known as Properties), which look like this: `{{some-value}}`. When using parametrized samples, you will have to either define relevant Named Values or replace them with values in place.
@@ -23,6 +27,7 @@ The `vscode-snippets/` folder contains user snippets for Visual Studio Code. Use
 - [Policies Reference](https://docs.microsoft.com/en-us/azure/api-management/api-management-policies)
 - [Policy Expressions](https://docs.microsoft.com/en-us/azure/api-management/api-management-policy-expressions)
 - [Handling Errors in Policies](https://docs.microsoft.com/en-us/azure/api-management/api-management-error-handling-policies)
+- [Policy Toolkit](https://github.com/Azure/azure-api-management-policy-toolkit)
 
 To learn about Azure API Management go [here.](https://azure.microsoft.com/en-us/services/api-management/)
 
