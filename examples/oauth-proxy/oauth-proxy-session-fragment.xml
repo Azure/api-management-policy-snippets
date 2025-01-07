@@ -137,7 +137,20 @@
 		<!-- Check the current date against when we want to refresh the token. This is about half of the tokens lifetime (so we don't miss our chance to refresh) -->
 		<when condition="@(DateTimeOffset.UtcNow > DateTimeOffset.FromUnixTimeSeconds((long)context.Variables["refreshAt"]))">
 			<!-- If it's time to refresh then post to AAD to get new tokens -->
-			<cache-lookup-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" default-value="" variable-name="refreshToken" />
+			<cache-lookup-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" default-value="" variable-name="encryptedRefreshToken" />
+
+			<!-- decrypt and turn back into a JObject -->
+			<set-variable name="refreshToken" value="@{
+				var tokenParts = ((string)context.Variables["encryptedRefreshToken"]).Split('.');
+				var token = Convert.FromBase64String(tokenParts[0]);
+				var keySet = tokenParts[1];
+				var iv = Guid.Parse((string)context.Variables["ivTokens"]).ToByteArray();
+				var key1 = Convert.FromBase64String("{{TokenEncryptionKey1}}");
+				var key2 = Convert.FromBase64String("{{TokenEncryptionKey2}}");
+				var key = keySet == "1" ? key1 : key2;
+				var decryptedBytes = token.Decrypt("Aes", key, iv);
+				return Encoding.UTF8.GetString(decryptedBytes);
+			}" />
 
             <choose>
                 <!-- If we've lost our fresh token then we'll have to redirect to the sign-in -->
@@ -207,6 +220,17 @@
 						return $"{Convert.ToBase64String(encryptedToken)}.{key}";
 					}" />
 
+					<set-variable name="encryptedRefreshToken" value="@{
+						var token = Encoding.UTF8.GetBytes((string)context.Variables["refreshToken"]);
+						var iv = Guid.Parse((string)context.Variables["ivTokens"]).ToByteArray();
+						var key1 = Convert.FromBase64String("{{TokenEncryptionKey1}}");
+						var key2 = Convert.FromBase64String("{{TokenEncryptionKey2}}");
+						var key = {{TokenEncryptionKey}};
+						var encryptionKey = key == 1 ? key1 : key2;
+						var encryptedToken = token.Encrypt("Aes", encryptionKey, iv);
+						return $"{Convert.ToBase64String(encryptedToken)}.{key}";
+					}" />
+
 					<!-- Store the encrypted token in the cache. -->
 					<cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-accessToken")" value="@((string)context.Variables["encryptedAccessToken"])" duration="@((int)context.Variables["refreshTime"])" />
 					<!-- Store the encrypted token in the cache. -->
@@ -214,7 +238,7 @@
 					<!-- Store another refresh time... We'll refresh the tokens half way to their expiry date. Try to avoid last minute timing errors -->
 					<cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshAt")" value="@(DateTimeOffset.UtcNow.AddSeconds((int)context.Variables["refreshTime"] / 2).ToUnixTimeSeconds())" duration="@((int)context.Variables["refreshTime"])" />
 					<!-- Store the refresh token separately. We probably want to cache it for longer than the token (avg user session length is a good idea) -->
-					<cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" value="@((string)context.Variables["refreshToken"])" duration="{{RefreshTokenExpirationInSeconds}}" />
+					<cache-store-value key="@($"tokens-{context.Variables["cacheKey"]}-refreshToken")" value="@((string)context.Variables["encryptedRefreshToken"])" duration="{{RefreshTokenExpirationInSeconds}}" />
 				</otherwise>
 			</choose>
 		</when>
