@@ -1,0 +1,176 @@
+<!-- The policy defined in this file provides an best-practice implementation of OAuth2SAMLBearerAssertion for SAP SuccessFactors OData services.
+     The mechanism to map an IdP associated user (in this case Microsoft Entra ID (formerly Azure Active Directory - AAD) to a SAP backend user
+     is often referred to as SAP Principal Propagation.
+-->
+<!-- The policy shows how to exchange an Entra ID issued access token for an SAP issued Bearer token and forward it to the backend.
+     In addition to that it caches the tokens, so that clients can focus on app logic rather than SAP Principal Propagation and to scale the approach.
+     Furthermore, it handles the X-CSRF-Token handling for update requests. -->
+<!-- Find further details in our blog series on the SAP community: https://community.powerplatform.com/blogs/post/?postid=c6a609ab-3556-ef11-a317-6045bda95bf0
+     Find a Postman collection to test the policy flow here: https://raw.githubusercontent.com/MartinPankraz/AzureSAPODataReader/master/Templates/SuccessFactors%20Entra%20ID%20principal%20propagation.postman_collection.json -->
+<!-- Parameters: AADTenantId - format TENANT-GUID, can be optained from Azure portal view for Entra ID for instance -->
+<!-- Parameters: APIMAADRegisteredAppClientId - format APP-GUID, obtained during app registration of Azure APIM instance -->
+<!-- Parameters: APIMAADRegisteredAppClientSecret - a URL encoded secret, obtained during app registration of Azure APIM -->
+<!-- Parameters: EntraIDSAPSFResource - an id obtained during app registration for SuccessFactors. Our guide leverages the SF domain for this (e.g. my.successfactors.eu) -->
+<!-- Parameters: SAPSFApiKey - API Key obtained from SuccessFactors during OAuth2 client app creation. https://help.sap.com/docs/SAP_SUCCESSFACTORS_PLATFORM/d599f15995d348a1b45ba5603e2aba9b/6b3c741483de47b290d075d798163bc1.html -->
+<!-- Parameters: SAPSFCompanyId - your SuccessFactors company id. Find it from here: https://userapps.support.sap.com/sap/support/knowledge/en/2655655 -->
+<!-- Parameters: SAPSFOAuthServerAdressForTokenEndpoint - format https://{{SAPSFOAuthServerAdressForTokenEndpoint}}/oauth/token -->
+<!-- To create the parameters (APIM named values) used in this policy, we provided a Azure Cloud shell script here: https://github.com/MartinPankraz/AzureSAPODataReader/blob/master/Templates/UpdateAPIMwithVariablesForSAPPolicy.sh -->
+<policies>
+    <inbound>
+        <base />
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" require-scheme="Bearer">
+            <openid-config url="https://login.microsoftonline.com/{{AADTenantId}}/.well-known/openid-configuration" />
+            <audiences>
+                <audience>api://{{APIMAADRegisteredAppClientId}}</audience>
+            </audiences>
+            <issuers>
+                <issuer>https://login.microsoftonline.com/{{AADTenantId}}/v2.0</issuer>
+            </issuers>
+            <required-claims>
+                <claim name="scp" match="all" separator=" ">
+                    <value>user_impersonation</value>
+                </claim>
+            </required-claims>
+        </validate-jwt>
+        <!-- avoid "br" encoding, because it breaks domain rewrite on outbound. SAP OData doesn't support br -->
+        <set-header name="Accept-Encoding" exists-action="override">
+            <value>gzip, deflate</value>
+        </set-header>
+        <set-variable name="APIMAADRegisteredAppClientId" value="{{APIMAADRegisteredAppClientId}}" />
+        <set-variable name="APIMAADRegisteredAppClientSecret" value="{{APIMAADRegisteredAppClientSecret}}" />
+        <set-variable name="EntraIDSAPSFResource" value="{{EntraIDSAPSFResource}}" />
+        <set-variable name="SAPSFApiKey" value="{{SAPSFApiKey}}" />
+        <set-variable name="SAPSFCompanyId" value="{{SAPSFCompanyId}}" />
+        <!-- check APIM cache for existing user SAP and refresh token for OData service -->
+        <cache-lookup-value key="@("SAPSFPrincipal" + context.Request.Headers.GetValueOrDefault("Authorization","").AsJwt()?.Subject)" variable-name="SAPBearerToken" />
+        <choose>
+            <!-- if SAP token is not in cache, get it from Entra ID and store -->
+            <when condition="@(!context.Variables.ContainsKey("SAPBearerToken"))">
+                <!-- Exchange AAD Bearer token for AAD issued SAML token on behalf of logged in user -->
+                <send-request mode="new" response-variable-name="fetchSAMLAssertion" timeout="10" ignore-error="false">
+                    <set-url>https://login.microsoftonline.com/{{AADTenantId}}/oauth2/v2.0/token</set-url>
+                    <set-method>POST</set-method>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/x-www-form-urlencoded</value>
+                    </set-header>
+                    <set-body>@{
+                            var _AADRegisteredAppClientId = context.Variables["APIMAADRegisteredAppClientId"];
+                            var _AADRegisteredAppClientSecret = context.Variables["APIMAADRegisteredAppClientSecret"];
+                            var _EntraIDSAPSFResource = context.Variables["EntraIDSAPSFResource"];
+                            var assertion = context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ","");
+                            return $"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion={assertion}&client_id={_AADRegisteredAppClientId}&client_secret={_AADRegisteredAppClientSecret}&scope={_EntraIDSAPSFResource}/.default&requested_token_use=on_behalf_of&requested_token_type=urn:ietf:params:oauth:token-type:saml2";
+                        }</set-body>
+                </send-request>
+                <set-variable name="accessToken" value="@((string)((IResponse)context.Variables["fetchSAMLAssertion"]).Body.As<JObject>()["access_token"])" />
+                <!-- Get SAP backend issued Bearer token for presented AAD issued SAML token using OAuth2SAMLBearerAssertion flow. -->
+                <send-request mode="new" response-variable-name="fetchSAPBearer" timeout="10" ignore-error="false">
+                    <set-url>https://{{SAPSFOAuthServerAdressForTokenEndpoint}}/oauth/token</set-url>
+                    <set-method>POST</set-method>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/x-www-form-urlencoded</value>
+                    </set-header>
+                    <!--  Don't expose APIM subscription key to the backend. -->
+                    <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
+                    <set-body>@{
+                            var _SAPSFApiKey = context.Variables["SAPSFApiKey"];
+                            var _SAPSFCompanyId = context.Variables["SAPSFCompanyId"];
+                            var assertion2 = context.Variables["accessToken"];
+                            return $"grant_type=urn:ietf:params:oauth:grant-type:saml2-bearer&assertion={assertion2}&client_id={_SAPSFApiKey}&company_id={_SAPSFCompanyId}";
+                        }</set-body>
+                </send-request>
+                <!-- Remember SAP Bearer tokens, deal with dictionary of objects -->
+                <set-variable name="SAPResponseObject" value="@(((IResponse)context.Variables["fetchSAPBearer"]).Body.As<JObject>())" />
+                <set-variable name="SAPBearerTokenExpiry" value="@(((JObject)context.Variables["SAPResponseObject"])["expires_in"].ToString())" />
+                <set-variable name="iSAPBearerTokenExpiry" value="@(int.Parse((string)context.Variables["SAPBearerTokenExpiry"]))" />
+                <set-variable name="SAPBearerToken" value="@(((JObject)context.Variables["SAPResponseObject"])["access_token"].ToString())" />
+                <!-- take random time off the actual expiry to avoid login bursts (clustered expired tokens). Assuming a third of the total expiry as lower boundary -->
+                <set-variable name="RandomBackOffDelay" value="@(new Random().Next(0,(int)context.Variables["iSAPBearerTokenExpiry"]/3))" />
+                <!--cache Bearer and refresh token till expiry. We recommend 36 hours to mitigate "morning" login bursts efficiently. -->
+                <cache-store-value key="@("SAPSFPrincipal" + context.Request.Headers.GetValueOrDefault("Authorization","").AsJwt()?.Subject)" value="@((string)context.Variables["SAPBearerToken"])" duration="@((int)context.Variables["iSAPBearerTokenExpiry"]  - (int)context.Variables["RandomBackOffDelay"])" />
+                <!-- optionally store duration for diagnostics endpoint
+                <cache-store-value key="@("SAPBearerDuration" + context.Request.Headers.GetValueOrDefault("Authorization","").AsJwt()?.Subject)" value="@((int)context.Variables["iSAPBearerTokenExpiry"] - (int)context.Variables["RandomBackOffDelay"])" duration="3600" />-->
+            </when>
+        </choose>
+        <!-- check CSRF -->
+        <choose>
+            <!-- CSRF-token only required for every operation other than GET or HEAD -->
+            <when condition="@(context.Request.Method != "GET" && context.Request.Method != "HEAD")">
+                <!-- Creating a HEAD subrequest to save request overhead and get the SAP CSRF token and cookie.-->
+                <send-request mode="new" response-variable-name="SAPCSRFToken" timeout="10" ignore-error="false">
+                    <set-url>@(context.Request.Url.ToString())</set-url>
+                    <set-method>HEAD</set-method>
+                    <set-header name="X-CSRF-Token" exists-action="override">
+                        <value>Fetch</value>
+                    </set-header>
+                    <set-header name="Authorization" exists-action="override">
+                        <value>@("Bearer " + (string)context.Variables["SAPBearerToken"])</value>
+                    </set-header>
+                </send-request>
+                <!-- Extract the token from the "SAPCSRFToken" and set as header in the POST request. -->
+                <choose>
+                    <when condition="@(((IResponse)context.Variables["SAPCSRFToken"]).StatusCode == 200)">
+                        <set-header name="X-CSRF-Token" exists-action="override">
+                            <value>@(((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("x-csrf-token"))</value>
+                        </set-header>
+                    </when>
+                </choose>
+            </when>
+        </choose>
+        <set-header name="Authorization" exists-action="override">
+            <value>@("Bearer " + (string)context.Variables["SAPBearerToken"])</value>
+        </set-header>
+        <!--  Don't expose APIM subscription key to the backend. -->
+        <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
+        <choose>
+            <!--introduce json format conversion only for non-metadata calls and only for GET operations. Otherwise bad request.-->
+            <when condition="@(!context.Request.Url.Path.Contains("/$metadata") && context.Request.Method == "GET")">
+                <set-query-parameter name="$format" exists-action="override">
+                    <value>json</value>
+                </set-query-parameter>
+            </when>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <!-- OPTIONAL: Ensure that APIM domain, port and path are reflected on the OData response from SAP
+             Otherwise deferred items like /secondManager are represented by SAP known host and port. Example:
+             https://demo-sap-apim.azure-api.net/odata/v2/User('0100000000')/secondManager vs.
+             https://demo-sap-apim.azure-api.net/my-prefix/odata/v2/User('0100000000')/secondManager
+             URL rewrite in body required for returned OData paths.
+             - Consider adding "/" + "context.Api.Version" to reflect your versioning scheme: https://learn.microsoft.com/azure/api-management/api-management-versions
+             - Consider Using expression "ToString().ToUpper()" to cater for upper case SAP host names.
+               context.Api.ServiceUrl.Host.ToString().ToUpper()
+        -->
+        <find-and-replace from="@(context.Api.ServiceUrl.Host + context.Api.ServiceUrl.Path)" to="@(context.Request.OriginalUrl.Host + context.Api.Path)" />
+    </outbound>
+    <on-error>
+        <base />
+        <set-header name="ErrorSource" exists-action="override">
+            <value>@(context.LastError.Source)</value>
+        </set-header>
+        <set-header name="ErrorReason" exists-action="override">
+            <value>@(context.LastError.Reason)</value>
+        </set-header>
+        <set-header name="ErrorMessage" exists-action="override">
+            <value>@(context.LastError.Message)</value>
+        </set-header>
+        <set-header name="ErrorScope" exists-action="override">
+            <value>@(context.LastError.Scope)</value>
+        </set-header>
+        <set-header name="ErrorSection" exists-action="override">
+            <value>@(context.LastError.Section)</value>
+        </set-header>
+        <set-header name="ErrorPath" exists-action="override">
+            <value>@(context.LastError.Path)</value>
+        </set-header>
+        <set-header name="ErrorPolicyId" exists-action="override">
+            <value>@(context.LastError.PolicyId)</value>
+        </set-header>
+        <set-header name="ErrorStatusCode" exists-action="override">
+            <value>@(context.Response.StatusCode.ToString())</value>
+        </set-header>
+    </on-error>
+</policies>

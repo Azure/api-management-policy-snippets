@@ -1,0 +1,12 @@
+<fragment>
+    
+    <!-- IdP provider specific validation of the access-tokens returned by the IdP -->
+    <validate-azure-ad-token 
+        tenant-id="{{TenantId}}"
+        token-value="@((string)context.Variables["accessToken"])">
+        <client-application-ids>
+            <application-id>{{ClientId}}</application-id>
+        </client-application-ids>
+    </validate-azure-ad-token>
+
+</fragment>
