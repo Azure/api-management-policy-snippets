@@ -1,12 +1,13 @@
 <!--
-    This policy sample demonstrates a pattern of replaying the request. 
-    For eg: One scenario could be when we are using quota and rate limit policies,for some special tier consumers, 
-    we would still like to serve the request if there was a quota error but this time with a low-end backend.
-    
-    The "example-policy-name" string is in the when condition is just for example and needs to be replaced with the actual policy name accordingly.
+    This policy sample demonstrates a pattern of replaying a request. 
+    For eg: one scenario could be when we are using quota and rate limit policies and for some special tier consumers, 
+    we would like to serve the request even if there was a quota error but with a different backend.
+    In such cases, we can replay the request to a different backend with the same request headers and body.    
+    The "example-policy-name" string in the when condition is just for example and needs to be replaced with the actual policy name accordingly.
 
     Important Note: 
-    Although this pattern works, we would do end up having 2 log entries now for the same request, since the request is now being replayed.
+    Although this pattern works, an important point to note here is since we are now replaying the request 
+    we would end up having 2 log entries for the same request in the APIM logs.
 -->
 <policies>
     <inbound>
@@ -25,18 +26,28 @@
                 <set-variable name="replay-url" value="@("http://" + context.Request.Headers.GetValueOrDefault("X-Original-Host") + context.Request.Headers.GetValueOrDefault("X-Original-Url"))" />
                 <set-variable name="original-error-source" value="@(context.LastError.Source)" />
                 <set-variable name="original-error-reason" value="@(context.LastError.Reason)" />
-                <!-- We replay the same request again to APIM -->
+                
+                <!-- Following snipped demonstrates the replya pattern,
+                For this, we are using send request's "copy" mode which would copy the original request's headers and body accoridngly.
+                Policy Documentation link https://learn.microsoft.com/en-us/azure/api-management/send-request-policy#attributes
+                -->
+                <!-- Note: 
+                As per the policy documentation,  the send request method will copy the request headers and body accordingly 
+                but we should always validate this and we can expclitly set the the request body and headers as needed.
+                -->
                 <send-request mode="copy" response-variable-name="replay-response" timeout="60" ignore-error="false">
                     <set-url>@(context.Variables.GetValueOrDefault<string>("replay-url"))</set-url>
-                    <set-method>POST</set-method>
                     <!-- While replaying the request this time, we might need to pass some additional information
                     this time in our request with corresponding logic in the inbound section to process such requests  
-                    The string "skip-example-policy-error" here is just as an example -->
+                    The string "skip-example-policy-error" here is just an example of additional header we are sending here 
+                    -->
                     <set-header name="skip-example-policy-error" exists-action="override">
                         <value>true</value>
                     </set-header>
                 </send-request>
-                <!-- THIS IS AN IMPORTANT STEP i.e. the response captured in policy variable "response-variable-name" defined above has to be explicity sent back -->
+                <!-- THIS IS AN IMPORTANT STEP i.e. the response captured in the send-request policy attribute 
+                "response-variable-name" defined above has to be explicity sent back 
+                -->
                 <return-response response-variable-name="replay-response">
                     <!-- Any additional headers like below can further be added as part of response tracking -->
                     <set-header name="x-request-replayed" exists-action="override">
