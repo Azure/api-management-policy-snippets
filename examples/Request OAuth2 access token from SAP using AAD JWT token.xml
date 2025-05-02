@@ -6,11 +6,11 @@
 <!-- It requires a user-assigned managed identity associated with the API Management instance for secure platform-internal token exchange. -->
 <!-- In addition to that it caches the tokens, so that clients can focus on app logic rather than SAP Principal Propagation and to scale the approach. -->
 <!-- Furthermore it handles the X-CSRF-Token handling for update requests. -->
-<!-- Find further details in our blog series on the SAP community: https://blogs.sap.com/2021/08/12/.net-speaks-odata-too-how-to-implement-azure-app-service-with-sap-odata-gateway/ -->
+<!-- Find further details in our blog series: https://community.powerplatform.com/blogs/post/?postid=c6a609ab-3556-ef11-a317-6045bda95bf0 -->
 <!-- Find a Postman collection to test the policy flow (with client secret instead of managed identity!) here: https://github.com/MartinPankraz/AzureSAPODataReader/blob/master/Templates/AAD_APIM_SAP_Principal_Propagation.postman_collection.json -->
 <!-- Parameters: AADTenantId - format TENANT-GUID, can be optained from Azure portal view for Entra ID for instance -->
 <!-- Parameters: APIMRegisteredAppClientId - format APP-GUID, obtained during app registration -->
-<!-- Parameters: APIMUserAssignedManagedIdentityId - Client ID of user-assigned managed identity of APIM instance https://learn.microsoft.com/azure/api-management/api-management-howto-use-managed-service-identity#create-a-user-assigned-managed-identity -->
+<!-- Parameters: APIMUserAssignedManagedIdentityId - Client ID of user-assigned managed identity of APIM instance https://community.sap.com/t5/technology-blogs-by-members/sap-principal-propagation-without-secrets-how-managed-identity-in-apim/ba-p/14091769 -->
 <!-- Parameters: AADRegisteredAppClientSecret (DEPRECATED!) - a URL encoded secret, obtained during app registration. Use managed identity instead! -->
 <!-- Parameters: AADSAPResource - an id obtained during app registration. Our guide leverages the SAP SID for this (e.g. FS1) -->
 <!-- Parameters: SAPOAuthClientID - an id obtained during OAuth setup on the SAP backend. Check SAP Transaction code SOAUTH2. -->
