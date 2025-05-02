@@ -1,23 +1,23 @@
 <!-- The policy defined in this file provides an best-practice implementation of OAuth2SAMLBearerAssertion for SAP OData services.
-     The mechanism to map an IdP associated user (in this case Microsoft Entra ID (formerly Azure Active Directory - AAD) to a SAP backend user
+     The mechanism to map an IdP associated user (in this case Entra ID) to a SAP backend user
      is often referred to as SAP Principal Propagation.
 -->
-<!-- The policy shows how to exchange an Entra ID issued access token for an SAP issued Bearer token and forward it to the backend.
-     In addition to that it caches the tokens, so that clients can focus on app logic rather than SAP Principal Propagation and to scale the approach.
-     Furthermore, it handles the X-CSRF-Token handling for update requests. -->
-<!-- Find further details in our blog series on the SAP community: https://blogs.sap.com/2021/08/12/.net-speaks-odata-too-how-to-implement-azure-app-service-with-sap-odata-gateway/
-     Find a Postman collection to test the policy flow here: https://github.com/MartinPankraz/AzureSAPODataReader/blob/master/Templates/AAD_APIM_SAP_Principal_Propagation.postman_collection.json
-     Find a video guide for the setup of SAP Principal Propagation here: https://github.com/MartinPankraz/SAP-MSTeams-Hero/blob/main/Towel-Bearer/103a-sap-principal-propagation-basics.md   -->
-<!-- Parameters: AADTenantId - format TENANT-GUID, can be optained from Azure portal view for Azure AD for instance -->
-<!-- Parameters: AADRegisteredAppClientId - format APP-GUID, obtained during app registration -->
-<!-- Parameters: AADRegisteredAppClientSecret - a URL encoded secret, obtained during app registration -->
+<!-- The policy shows how to exchange an Entra ID issued access token for an SAP issued Bearer token and forward it to the backend. -->
+<!-- It requires a user-assigned managed identity associated with the API Management instance for secure platform-internal token exchange. -->
+<!-- In addition to that it caches the tokens, so that clients can focus on app logic rather than SAP Principal Propagation and to scale the approach. -->
+<!-- Furthermore it handles the X-CSRF-Token handling for update requests. -->
+<!-- Find further details in our blog series: https://community.powerplatform.com/blogs/post/?postid=c6a609ab-3556-ef11-a317-6045bda95bf0 -->
+<!-- Find a Postman collection to test the policy flow (with client secret instead of managed identity!) here: https://github.com/MartinPankraz/AzureSAPODataReader/blob/master/Templates/AAD_APIM_SAP_Principal_Propagation.postman_collection.json -->
+<!-- Parameters: AADTenantId - format TENANT-GUID, can be optained from Azure portal view for Entra ID for instance -->
+<!-- Parameters: APIMRegisteredAppClientId - format APP-GUID, obtained during app registration -->
+<!-- Parameters: APIMUserAssignedManagedIdentityId - Client ID of user-assigned managed identity of APIM instance https://community.sap.com/t5/technology-blogs-by-members/sap-principal-propagation-without-secrets-how-managed-identity-in-apim/ba-p/14091769 -->
+<!-- Parameters: AADRegisteredAppClientSecret (DEPRECATED!) - a URL encoded secret, obtained during app registration. Use managed identity instead! -->
 <!-- Parameters: AADSAPResource - an id obtained during app registration. Our guide leverages the SAP SID for this (e.g. FS1) -->
 <!-- Parameters: SAPOAuthClientID - an id obtained during OAuth setup on the SAP backend. Check SAP Transaction code SOAUTH2. -->
 <!-- Parameters: SAPOAuthClientSecret - a URL encoded secret, obtained during OAuth setup on the SAP backend -->
 <!-- Parameters: SAPOAuthScope - a text, obtained during OAuth setup on the SAP backend. Likely class name of the target OData service (e.g. ZEPM_REF_APPS_PROD_MAN_SRV_0001) -->
 <!-- Parameters: SAPOAuthServerAdressForTokenEndpoint - format https://{{SAPOAuthServerAdressForTokenEndpoint}}/sap/bc/sec/oauth2/token -->
 <!-- Parameters: SAPOAuthRefreshExpiry - a value in ms resembling the OAuth token refresh expiry time from SAP backend. Check SAP transaction SOAUTH2 for the value. -->
-<!-- To create the parameters (APIM named values) used in this policy, we provided a Azure Cloud shell script here: https://github.com/MartinPankraz/AzureSAPODataReader/blob/master/Templates/UpdateAPIMwithVariablesForSAPPolicy.sh -->
 <policies>
     <inbound>
         <base />
@@ -43,10 +43,10 @@
             <value>gzip, deflate</value>
         </set-header>
         <set-variable name="APIMAADRegisteredAppClientId" value="{{APIMAADRegisteredAppClientId}}" />
-        <set-variable name="APIMAADRegisteredAppClientSecret" value="{{APIMAADRegisteredAppClientSecret}}" />
+        <!--<set-variable name="APIMAADRegisteredAppClientSecret" value="{{APIMAADRegisteredAppClientSecret}}" /> Kept as fallback. Use managed identity APIMUserAssignedManagedIdentityId instead! -->
         <set-variable name="AADSAPResource" value="{{AADSAPResource}}" />
         <set-variable name="SAPOAuthClientID" value="{{SAPOAuthClientID}}" />
-        <set-variable name="SAPOAuthClientSecret" value="{{SAPOAuthClientSecret}}" />
+        <set-variable name="SAPOAuthClientSecret" value="{{SAPOAuthClientSecret}}" /> 
         <set-variable name="SAPOAuthScope" value="{{SAPOAuthScope}}" />
         <set-variable name="SAPOAuthRefreshExpiry" value="{{SAPOAuthRefreshExpiry}}" />
         <!-- check APIM cache for existing user SAP and refresh token for OData service -->
@@ -55,7 +55,9 @@
         <choose>
             <!-- if SAP token is not in cache and also no refresh token available, get it from AAD and store both in cache -->
             <when condition="@(!context.Variables.ContainsKey("SAPBearerToken") && !context.Variables.ContainsKey("SAPRefreshToken"))">
-                <!-- Exchange AAD Bearer token for AAD issued SAML token on behalf of logged in user -->
+                <!-- Get jwt for token exchange using APIM user-assigned managed identity -->
+                <authentication-managed-identity resource="api://azureadtokenexchange" client-id="{{APIMUserAssignedManagedIdentityId}}" output-token-variable-name="msi-access-token" ignore-error="false" />
+                <!-- Exchange Entra ID Bearer token for Entra ID issued SAML token on behalf of logged in user -->
                 <send-request mode="new" response-variable-name="fetchSAMLAssertion" timeout="10" ignore-error="false">
                     <set-url>https://login.microsoftonline.com/{{AADTenantId}}/oauth2/v2.0/token</set-url>
                     <set-method>POST</set-method>
@@ -64,10 +66,12 @@
                     </set-header>
                     <set-body>@{
                             var _AADRegisteredAppClientId = context.Variables["APIMAADRegisteredAppClientId"];
-                            var _AADRegisteredAppClientSecret = context.Variables["APIMAADRegisteredAppClientSecret"];
+                            /*var _AADRegisteredAppClientSecret = context.Variables["APIMAADRegisteredAppClientSecret"];*/
                             var _AADSAPResource = context.Variables["AADSAPResource"];
-                            var assertion = context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ","");
-                            return $"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion={assertion}&client_id={_AADRegisteredAppClientId}&client_secret={_AADRegisteredAppClientSecret}&scope={_AADSAPResource}/.default&requested_token_use=on_behalf_of&requested_token_type=urn:ietf:params:oauth:token-type:saml2";
+                            var user_assertion = context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ","");
+                            var apim_assertion = context.Variables["msi-access-token"];
+                            return $"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&client_assertion={apim_assertion}&client_id={_AADRegisteredAppClientId}&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&assertion={user_assertion}&scope={_AADSAPResource}/.default&requested_token_use=on_behalf_of&requested_token_type=urn:ietf:params:oauth:token-type:saml2";
+                            /* Kept as fallback only: return $"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion={user_assertion}&client_id={_AADRegisteredAppClientId}&client_secret={_AADRegisteredAppClientSecret}&scope={_AADSAPResource}/.default&requested_token_use=on_behalf_of&requested_token_type=urn:ietf:params:oauth:token-type:saml2"; */
                         }</set-body>
                 </send-request>
                 <set-variable name="accessToken" value="@((string)((IResponse)context.Variables["fetchSAMLAssertion"]).Body.As<JObject>()["access_token"])" />
@@ -86,8 +90,6 @@
                                 return "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_SAPOAuthClientID}:{_SAPOAuthClientSecret}"));
                             }</value>
                     </set-header>
-                    <!--  Don't expose APIM subscription key to the backend. -->
-                    <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
                     <set-body>@{
                             var _SAPOAuthClientID = context.Variables["SAPOAuthClientID"];
                             var _SAPOAuthScope = context.Variables["SAPOAuthScope"];
@@ -171,22 +173,22 @@
                 <!-- Extract the token and cookie from the "SAPCSRFToken" and set as header in the POST request. -->
                 <choose>
                     <when condition="@(((IResponse)context.Variables["SAPCSRFToken"]).StatusCode == 200)">
-                        <set-header name="X-CSRF-Token" exists-action="override">
-                            <value>@(((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("x-csrf-token"))</value>
-                        </set-header>
-                        <set-header name="Cookie" exists-action="override">
-                            <value>@{
-                                string rawcookie = ((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("Set-Cookie");
-                                string[] cookies = rawcookie.Split(';');
-                                /* new session sends a XSRF cookie */
-                                string xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("sap-XSRF"));
-                                /* existing sessions sends a SessionID. No other cases anticipated at this point. Please create a GitHub Pull-Request if you encounter uncovered settings. */
-                                if(xsrftoken == null){
-                                    xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("SAP_SESSIONID"));
-                                }
-                                
-                                return xsrftoken.Split(',')[1];}</value>
-                        </set-header>
+                <set-header name="X-CSRF-Token" exists-action="override">
+                    <value>@(((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("x-csrf-token"))</value>
+                </set-header>
+                <set-header name="Cookie" exists-action="override">
+                    <value>@{
+                        string rawcookie = ((IResponse)context.Variables["SAPCSRFToken"]).Headers.GetValueOrDefault("Set-Cookie");
+                        string[] cookies = rawcookie.Split(';');
+                        /* new session sends a XSRF cookie */
+                        string xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("sap-XSRF"));
+                        /* existing sessions sends a SessionID. No other cases anticipated at this point. Please create a GitHub Pull-Request if you encounter uncovered settings. */
+                        if(xsrftoken == null){
+                            xsrftoken = cookies.FirstOrDefault( ss => ss.Contains("SAP_SESSIONID"));
+                        }
+                        
+                        return xsrftoken.Split(',')[1];}</value>
+                </set-header>
                     </when>
                 </choose>
             </when>
@@ -194,8 +196,6 @@
         <set-header name="Authorization" exists-action="override">
             <value>@("Bearer " + (string)context.Variables["SAPBearerToken"])</value>
         </set-header>
-        <!--  Don't expose APIM subscription key to the backend. -->
-        <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
         <choose>
             <!--introduce json format conversion only for non-metadata calls and only for GET operations. Otherwise bad request.-->
             <when condition="@(!context.Request.Url.Path.Contains("/$metadata") && context.Request.Method == "GET")">
@@ -213,14 +213,7 @@
         <!-- OPTIONAL: Ensure that APIM domain, port and path are reflected on the OData response from SAP
              Otherwise deferred items like /toSalesOrders are represented by SAP known host and port. Example:
              https://10.10.10.10:44300/sap/opu/odata/iwbep/gwsample_basic/BusinessPartnerSet('0100000000')/ToSalesOrders vs.
-             https://demo-sap-apim.azure-api.net:443/my-prefix/sap/opu/odata/iwbep/gwsample_basic/BusinessPartnerSet('0100000000')/ToSalesOrders
-
-             URL rewrite in body required for returned OData paths.
-
-             - Consider adding "/" + "context.Api.Version" to reflect your versioning scheme: https://learn.microsoft.com/azure/api-management/api-management-versions
-             - Consider Using expression "ToString().ToUpper()" to cater for upper case SAP host names. See SAP Note 129997 and 611361 that discuss the SAP ABAP settings for case sensive host names for reference.
-
-               context.Api.ServiceUrl.Host.ToString().ToUpper()
+             https://demo-sap-apim.azure-api.net:443/my-prefix/BusinessPartnerSet('0100000000')/ToSalesOrders
         -->
         <find-and-replace from="@(context.Api.ServiceUrl.Host +":"+ context.Api.ServiceUrl.Port)" to="@(context.Request.OriginalUrl.Host + ":" + context.Request.OriginalUrl.Port + context.Api.Path)" />
     </outbound>
