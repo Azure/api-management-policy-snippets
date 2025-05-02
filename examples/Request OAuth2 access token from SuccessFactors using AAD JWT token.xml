@@ -11,6 +11,7 @@
 <!-- Parameters: AADTenantId - format TENANT-GUID, can be optained from Azure portal view for Entra ID for instance -->
 <!-- Parameters: APIMAADRegisteredAppClientId - format APP-GUID, obtained during app registration of Azure APIM instance -->
 <!-- Parameters: APIMUserAssignedManagedIdentityId - Client ID of user-assigned managed identity of APIM instance https://learn.microsoft.com/azure/api-management/api-management-howto-use-managed-service-identity#create-a-user-assigned-managed-identity -->
+<!-- Parameters: APIMAADRegisteredAppClientSecret (DEPRECATED!) - a URL encoded secret, obtained during app registration. Use managed identity instead! -->
 <!-- Parameters: EntraIDSAPSFResource - an id obtained during app registration for SuccessFactors. Our guide leverages the SF domain for this (e.g. my.successfactors.eu) -->
 <!-- Parameters: SAPSFApiKey - API Key obtained from SuccessFactors during OAuth2 client app creation. https://help.sap.com/docs/SAP_SUCCESSFACTORS_PLATFORM/d599f15995d348a1b45ba5603e2aba9b/6b3c741483de47b290d075d798163bc1.html -->
 <!-- Parameters: SAPSFCompanyId - your SuccessFactors company id. Find it from here: https://userapps.support.sap.com/sap/support/knowledge/en/2655655 -->
@@ -38,6 +39,7 @@
             <value>gzip, deflate</value>
         </set-header>
         <set-variable name="APIMAADRegisteredAppClientId" value="{{APIMAADRegisteredAppClientId}}" />
+        <!--<set-variable name="APIMAADRegisteredAppClientSecret" value="{{APIMAADRegisteredAppClientSecret}}" /> Kept as fallback. Use managed identity APIMUserAssignedManagedIdentityId instead! -->
         <set-variable name="EntraIDSAPSFResource" value="{{EntraIDSAPSFResource}}" />
         <set-variable name="SAPSFApiKey" value="{{SAPSFApiKey}}" />
         <set-variable name="SAPSFCompanyId" value="{{SAPSFCompanyId}}" />
@@ -57,10 +59,12 @@
                     </set-header>
                     <set-body>@{
                             var _AADRegisteredAppClientId = context.Variables["APIMAADRegisteredAppClientId"];
+                            /*var _AADRegisteredAppClientSecret = context.Variables["APIMAADRegisteredAppClientSecret"];*/
                             var _EntraIDSAPSFResource = context.Variables["EntraIDSAPSFResource"];
                             var user_assertion = context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ","");
                             var apim_assertion = context.Variables["msi-access-token"];
                             return $"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&client_assertion={apim_assertion}&client_id={_AADRegisteredAppClientId}&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&assertion={user_assertion}&scope={_EntraIDSAPSFResource}/.default&requested_token_use=on_behalf_of&requested_token_type=urn:ietf:params:oauth:token-type:saml2";
+                            /* Kept as fallback only: return $"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion={user_assertion}&client_id={_AADRegisteredAppClientId}&client_secret={_AADRegisteredAppClientSecret}&scope={_EntraIDSAPSFResource}/.default&requested_token_use=on_behalf_of&requested_token_type=urn:ietf:params:oauth:token-type:saml2"; */
                         }</set-body>
                 </send-request>
                 <set-variable name="accessToken" value="@((string)((IResponse)context.Variables["fetchSAMLAssertion"]).Body.As<JObject>()["access_token"])" />
@@ -71,8 +75,6 @@
                     <set-header name="Content-Type" exists-action="override">
                         <value>application/x-www-form-urlencoded</value>
                     </set-header>
-                    <!--  Don't expose APIM subscription key to the backend. -->
-                    <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
                     <set-body>@{
                             var _SAPSFApiKey = context.Variables["SAPSFApiKey"];
                             var _SAPSFCompanyId = context.Variables["SAPSFCompanyId"];
@@ -121,8 +123,6 @@
         <set-header name="Authorization" exists-action="override">
             <value>@("Bearer " + (string)context.Variables["SAPBearerToken"])</value>
         </set-header>
-        <!--  Don't expose APIM subscription key to the backend. -->
-        <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
         <choose>
             <!--introduce json format conversion only for non-metadata calls and only for GET operations. Otherwise bad request.-->
             <when condition="@(!context.Request.Url.Path.Contains("/$metadata") && context.Request.Method == "GET")">

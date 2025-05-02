@@ -11,6 +11,7 @@
 <!-- Parameters: AADTenantId - format TENANT-GUID, can be optained from Azure portal view for Entra ID for instance -->
 <!-- Parameters: APIMRegisteredAppClientId - format APP-GUID, obtained during app registration -->
 <!-- Parameters: APIMUserAssignedManagedIdentityId - Client ID of user-assigned managed identity of APIM instance https://learn.microsoft.com/azure/api-management/api-management-howto-use-managed-service-identity#create-a-user-assigned-managed-identity -->
+<!-- Parameters: AADRegisteredAppClientSecret (DEPRECATED!) - a URL encoded secret, obtained during app registration. Use managed identity instead! -->
 <!-- Parameters: AADSAPResource - an id obtained during app registration. Our guide leverages the SAP SID for this (e.g. FS1) -->
 <!-- Parameters: SAPOAuthClientID - an id obtained during OAuth setup on the SAP backend. Check SAP Transaction code SOAUTH2. -->
 <!-- Parameters: SAPOAuthClientSecret - a URL encoded secret, obtained during OAuth setup on the SAP backend -->
@@ -42,10 +43,10 @@
             <value>gzip, deflate</value>
         </set-header>
         <set-variable name="APIMAADRegisteredAppClientId" value="{{APIMAADRegisteredAppClientId}}" />
-        <set-variable name="APIMAADRegisteredAppClientSecret" value="{{APIMAADRegisteredAppClientSecret}}" />
+        <!--<set-variable name="APIMAADRegisteredAppClientSecret" value="{{APIMAADRegisteredAppClientSecret}}" /> Kept as fallback. Use managed identity APIMUserAssignedManagedIdentityId instead! -->
         <set-variable name="AADSAPResource" value="{{AADSAPResource}}" />
         <set-variable name="SAPOAuthClientID" value="{{SAPOAuthClientID}}" />
-        <set-variable name="SAPOAuthClientSecret" value="{{SAPOAuthClientSecret}}" />
+        <set-variable name="SAPOAuthClientSecret" value="{{SAPOAuthClientSecret}}" /> 
         <set-variable name="SAPOAuthScope" value="{{SAPOAuthScope}}" />
         <set-variable name="SAPOAuthRefreshExpiry" value="{{SAPOAuthRefreshExpiry}}" />
         <!-- check APIM cache for existing user SAP and refresh token for OData service -->
@@ -65,11 +66,12 @@
                     </set-header>
                     <set-body>@{
                             var _AADRegisteredAppClientId = context.Variables["APIMAADRegisteredAppClientId"];
-                            var _AADRegisteredAppClientSecret = context.Variables["APIMAADRegisteredAppClientSecret"];
+                            /*var _AADRegisteredAppClientSecret = context.Variables["APIMAADRegisteredAppClientSecret"];*/
                             var _AADSAPResource = context.Variables["AADSAPResource"];
                             var user_assertion = context.Request.Headers.GetValueOrDefault("Authorization","").Replace("Bearer ","");
                             var apim_assertion = context.Variables["msi-access-token"];
                             return $"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&client_assertion={apim_assertion}&client_id={_AADRegisteredAppClientId}&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&assertion={user_assertion}&scope={_AADSAPResource}/.default&requested_token_use=on_behalf_of&requested_token_type=urn:ietf:params:oauth:token-type:saml2";
+                            /* Kept as fallback only: return $"grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion={user_assertion}&client_id={_AADRegisteredAppClientId}&client_secret={_AADRegisteredAppClientSecret}&scope={_AADSAPResource}/.default&requested_token_use=on_behalf_of&requested_token_type=urn:ietf:params:oauth:token-type:saml2"; */
                         }</set-body>
                 </send-request>
                 <set-variable name="accessToken" value="@((string)((IResponse)context.Variables["fetchSAMLAssertion"]).Body.As<JObject>()["access_token"])" />
@@ -88,8 +90,6 @@
                                 return "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_SAPOAuthClientID}:{_SAPOAuthClientSecret}"));
                             }</value>
                     </set-header>
-                    <!--  Don't expose APIM subscription key to the backend. -->
-                    <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
                     <set-body>@{
                             var _SAPOAuthClientID = context.Variables["SAPOAuthClientID"];
                             var _SAPOAuthScope = context.Variables["SAPOAuthScope"];
@@ -130,8 +130,6 @@
                                 return "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_SAPOAuthClientID}:{_SAPOAuthClientSecret}"));
                             }</value>
                     </set-header>
-                    <!--  Don't expose APIM subscription key to the backend. -->
-                    <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
                     <set-body>@{
                             var _SAPOAuthClientID = context.Variables["SAPOAuthClientID"];
                             var _SAPOAuthScope = context.Variables["SAPOAuthScope"];
@@ -171,8 +169,6 @@
                     <set-header name="Authorization" exists-action="override">
                         <value>@("Bearer " + (string)context.Variables["SAPBearerToken"])</value>
                     </set-header>
-                    <!--  Don't expose APIM subscription key to the backend. -->
-                    <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
                 </send-request>
                 <!-- Extract the token and cookie from the "SAPCSRFToken" and set as header in the POST request. -->
                 <choose>
@@ -200,8 +196,6 @@
         <set-header name="Authorization" exists-action="override">
             <value>@("Bearer " + (string)context.Variables["SAPBearerToken"])</value>
         </set-header>
-        <!--  Don't expose APIM subscription key to the backend. -->
-        <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
         <choose>
             <!--introduce json format conversion only for non-metadata calls and only for GET operations. Otherwise bad request.-->
             <when condition="@(!context.Request.Url.Path.Contains("/$metadata") && context.Request.Method == "GET")">
