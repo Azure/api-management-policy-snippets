@@ -28,9 +28,9 @@ The `vscode-snippets/` folder contains user snippets for Visual Studio Code. Use
 - [Policy Expressions](https://docs.microsoft.com/en-us/azure/api-management/api-management-policy-expressions)
 - [Handling Errors in Policies](https://docs.microsoft.com/en-us/azure/api-management/api-management-error-handling-policies)
 - [Policy Toolkit](https://github.com/Azure/azure-api-management-policy-toolkit)
+- [APIM Samples](https://aka.ms/apim/samples)
 
-To learn about Azure API Management go [here.](https://azure.microsoft.com/en-us/services/api-management/)
-
+To learn about Azure API Management go [here](https://azure.microsoft.com/en-us/services/api-management/).
 
 # Contributing
 
