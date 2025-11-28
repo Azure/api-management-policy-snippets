@@ -16,7 +16,10 @@
             <!-- Cookie not the right format - redirect to the sign-in endpoint -->
             <when condition="@(((string)context.Variables["encryptedIncomingFullSessionCookie"]).Split('.').Length != 3)">
                 <return-response>
-                    <set-status code="401" reason="Incorrect formed cookie" />
+                    <set-status code="302" />
+                    <set-header name="Location" exists-action="override">
+                        <value>@($"/oauth/signin?redirect={Uri.EscapeDataString(context.Request.OriginalUrl.ToString())}")</value>
+                    </set-header>
                 </return-response>
             </when>
         </choose>
@@ -25,13 +28,14 @@
         <set-variable name="encryptedCookie" value="@(((string)context.Variables["encryptedIncomingFullSessionCookie"]).Split('.')[0])" />
         <set-variable name="ivCookie" value="@(((string)context.Variables["encryptedIncomingFullSessionCookie"]).Split('.')[1])" />
         <set-variable name="cookieKey" value="@(((string)context.Variables["encryptedIncomingFullSessionCookie"]).Split('.')[2])" />
+
         <choose>
             <!-- Cookie not the right format - redirect to the sign-in endpoint -->
             <when condition="@(((string)context.Variables["ivCookie"]) == string.Empty)">
                 <return-response>
                     <set-status code="302" />
                     <set-header name="Location" exists-action="override">
-                        <value>@($"/oauth/signin?redirect={(string)context.Variables["redirect-no-cookie"]}")</value>
+                        <value>@($"/oauth/signin?redirect={Uri.EscapeDataString(context.Request.OriginalUrl.ToString())}")</value>
                     </set-header>
                 </return-response>
             </when>
@@ -57,7 +61,7 @@
                 <return-response>
                     <set-status code="302" />
                     <set-header name="Location" exists-action="override">
-                        <value>@($"/oauth/signin?redirect={(string)context.Variables["redirect-no-cookie"]}")</value>
+                        <value>@($"/oauth/signin?redirect={Uri.EscapeDataString(context.Request.OriginalUrl.ToString())}")</value>
                     </set-header>
                 </return-response>
             </when>
