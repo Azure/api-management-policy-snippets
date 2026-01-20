@@ -1,0 +1,40 @@
+<!--
+    This policy converts the results of an oracle cloud rest api to an 'odata-like format'.
+    The items element is renamed to value.
+    An '@odata.nextlink' is generated using the count and offset received from oracle and added to the output.
+    With these updates, the oracle api can be called from azure logic apps and PowerAutomate
+    with the paging option enabled and Logicapps will iteate through all the pages for you
+-->
+<policies>
+    <inbound>
+        <base />
+    </inbound>
+    <backend>
+        <forward-request timeout="240" />
+    </backend>
+    <outbound>
+        <base />
+        <set-body>@{  
+                var asciiAt=(char)64;
+                var nextLinkFieldName=asciiAt+"odata.nextlink";
+                var response = context.Response.Body.As<JObject>(preserveContent: true);
+                var hasMore=response.GetValue("hasMore").Value<bool>();
+                var items=response.GetValue("items");
+                response.Add("value",items);
+                response.Remove("items");
+                if(hasMore){
+                    var count=response.GetValue("count").Value<int>();
+                    var limit=response.GetValue("limit").Value<int>();
+                    var offset=response.GetValue("offset").Value<int>();
+                    var nextOffset=offset+count;
+                    var nextLink=$"https://xxxxx.azure-api.net/oracle-clone/fscmRestApi/resources/latest/receivablesInvoices?offset={nextOffset}&limit={limit}";
+                    response.Add(nextLinkFieldName,nextLink);
+                }
+                return response.ToString();
+
+            }</set-body>
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
