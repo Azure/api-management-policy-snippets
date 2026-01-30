@@ -1,0 +1,122 @@
+<!-- The policy demonstrated in this file provides an example of how to create a Backend for Frontend or Curated API endpoint on Azure API Management -->
+<!-- A Backend for Frontend (BFF) API is a client-specific API that aggregates and orchestrates calls to one or more backend services, 
+     shaping responses to exactly match the needs of a particular frontend or consumer. 
+-->
+<!-- In this example we assume that the frontend makes a single call that needs to go to multiple backend call under same base url. 
+        This can be changed though by using different base url variables for each backend call. 
+-->
+<policies>
+  <inbound>
+	<base />
+	<!-- 
+        Recommendation: Use the following before calling the backend
+        1. Authentication Policy
+        2. Logging Policy
+        3. Query Parameter validation (if required)
+        4. Cache lookup (if required)
+        5. Rate limiting (if required)
+    -->
+	<!-- Make parallel calls to multiple backend apis
+        This assumes 
+        1. A named-value present in APIM that has the base url for all the API calls
+        2. A named-value present in APIM that has the time out value for all the API calls
+        3. If a call to any of the backends fails the BFF API still collects all the responses instead of failing.
+        4. All of them use the same HTTP Verb (GET, POST) if for any reason you need to mix them, that can be customized for each send-request policy
+     -->
+	<wait for="all">
+	  <send-request mode="copy" response-variable-name="operation1" timeout="{{bff-timeout}}" ignore-error="true">
+		<set-url>@("{{bff-baseurl}}/notifications/v1.0/my/?pageSize=" + context.Request.Url.Query.GetValueOrDefault("pageSize", "8"))</set-url>
+	  </send-request>
+	  <send-request mode="copy" response-variable-name="operation2" timeout="{{bff-timeout}}" ignore-error="true">
+		<set-url>{{bff-baseurl}}/operation2</set-url>
+	  </send-request>
+	  <send-request mode="copy" response-variable-name="operation3" timeout="{{bff-timeout}}" ignore-error="true">
+		<set-url>{{bff-baseurl}}/operation3</set-url>
+	  </send-request>
+	  <send-request mode="copy" response-variable-name="operation4" timeout="{{bff-timeout}}" ignore-error="true">
+		<set-url>{{bff-baseurl}}/operation4</set-url>
+	  </send-request>
+	</wait>
+
+	<!-- Collect the complete response in a variable. -->
+	<!-- Note the  characters  " < and >  are HTML escaped with &quot; &lt; and &gt; since it is an expression with the attribute value -->
+	<set-variable name="finalResponseData" value="@{
+        JObject finalResponse       = new JObject(); 
+        int     finalStatus         = 200;  // This assumes the final success status (If all backend calls succeed) is 200 - OK, can be customized. 
+        string  finalStatusReason   = &quot;OK&quot;;    
+
+          void ParseBody(JObject element, string propertyName, IResponse response){
+              string body = &quot;&quot;;
+              if(response!=null){
+                  body = response.Body.As&lt;string&gt;();
+                  try{
+                      var jsonBody = JToken.Parse(body);
+                      element.Add(propertyName, jsonBody);
+                  }
+                  catch(Exception ex){
+                      element.Add(propertyName, body);
+                  }
+              }
+              else{
+                  element.Add(propertyName, body); //Add empty body if the response was not captured
+              }
+          }
+
+          JObject PrepareResponse(string responseVariableName){ 
+            JObject responseElement = new JObject();
+            responseElement.Add(&quot;operation&quot;, responseVariableName);
+                
+            IResponse response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(responseVariableName);
+            if(response == null){
+                finalStatus = 207; // if any of the responses are null; the final status will be 207
+                finalStatusReason = &quot;Multi Status&quot;;
+                ParseBody(responseElement, &quot;error&quot;, response);
+                return responseElement;
+            }
+
+            int status = response.StatusCode;
+            responseElement.Add(&quot;status&quot;, status);
+
+            if(status == 200){ // This assumes all the backend APIs return 200, if they return other success responses (e.g. 201) add them here
+                ParseBody(responseElement, &quot;body&quot;, response);
+            }
+            else{ // if any of the response codes are non success, the final status will be 207
+                finalStatus = 207; 
+                finalStatusReason = &quot;Multi Status&quot;;
+                ParseBody(responseElement, &quot;error&quot;, response);
+            }
+            return responseElement;
+          }
+            
+          // Gather responses into JSON Array 
+          // Pass on the each of the response variable names here.
+          JArray finalResponseBody = new JArray();
+          finalResponseBody.Add(PrepareResponse(&quot;operation1&quot;));
+          finalResponseBody.Add(PrepareResponse(&quot;operation2&quot;));
+          finalResponseBody.Add(PrepareResponse(&quot;operation3&quot;));
+          finalResponseBody.Add(PrepareResponse(&quot;operation4&quot;));
+        
+		  // Populate finalResponse with aggregated body and status information
+
+          finalResponse.Add(&quot;body&quot;, finalResponseBody);
+          finalResponse.Add(&quot;status&quot;, finalStatus);
+          finalResponse.Add(&quot;reason&quot;, finalStatusReason);
+          return finalResponse;
+        }" />
+
+	<!-- This shows how to return the final response code and body. Other response elements (e.g. outbound headers) can be curated and added here the same way -->
+	<return-response>
+	  <set-status code="@((int)((JObject)context.Variables[&quot;finalResponseData&quot;]).SelectToken(&quot;status&quot;))" reason="@(((JObject)context.Variables[&quot;finalResponseData&quot;]).SelectToken(&quot;reason&quot;).ToString())" />
+	  <set-body>@(((JObject)context.Variables["finalResponseData"]).SelectToken("body").ToString(Newtonsoft.Json.Formatting.None))</set-body>
+	</return-response>
+  </inbound>
+  <backend>
+	<base />
+  </backend>
+  <outbound>
+	<base />
+  </outbound>
+  <on-error>
+	<base />
+  </on-error>
+</policies>
