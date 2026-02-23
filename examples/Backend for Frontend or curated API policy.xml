@@ -25,7 +25,7 @@
      -->
 	<wait for="all">
 	  <send-request mode="copy" response-variable-name="operation1" timeout="{{bff-timeout}}" ignore-error="true">
-		<set-url>@("{{bff-baseurl}}/notifications/v1.0/my/?pageSize=" + context.Request.Url.Query.GetValueOrDefault("pageSize", "8"))</set-url>
+		<set-url>@("{{bff-baseurl}}/operation1?param1=" + context.Request.Url.Query.GetValueOrDefault("param1", "value1"))</set-url>
 	  </send-request>
 	  <send-request mode="copy" response-variable-name="operation2" timeout="{{bff-timeout}}" ignore-error="true">
 		<set-url>{{bff-baseurl}}/operation2</set-url>
