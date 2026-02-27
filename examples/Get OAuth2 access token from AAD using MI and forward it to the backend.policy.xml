@@ -1,0 +1,57 @@
+<!-- The policy defined in this file provides an example of using OAuth2 for authorization between the gateway and a backend. -->
+<!-- It shows how to obtain an access token from Azure AD and forward it to the backend. -->
+
+<!-- Send request to Azure AD to obtain a bearer token -->
+<!-- Parameters: authorizationServer - format https://login.windows.net -->
+<!-- Parameters: tenantId - a GUID indicating tenant id -->
+<!-- Parameters: clientId - an id obtained during app registration -->
+<!-- Parameters: resource - Target url/resource on which access is required -->
+<!-- Parameters: managed-identity-clientid - ID of the Managed identity FICed into the app registration using which the token will be exchanged -->
+
+
+<!-- Copy the following snippet into the inbound section. -->
+
+<policies>
+  <inbound>
+    <base />
+      <set-variable name="tenantId" value="{{tenant-id}}" />
+      <set-variable name="clientId" value="{{aad-client-application-id}}" />
+      <set-variable name="resource" value="{{resource}}" />
+      <set-variable name="authoization-Server" value="{{authorization-server}}" />
+      <!-- Fetch the token using MI for exchanged with AAD app-->
+      <authentication-managed-identity resource="api://AzureADTokenExchange" client-id="{{managed-identity-clientid}}" output-token-variable-name="msi-access-token" ignore-error="false" />
+      <!-- Exchange the token received in previous step for AAD app in target tenant -->
+      <set-variable name="client_assertion" value="@((string)context.Variables[&quot;msi-access-token&quot;])" />
+      <send-request mode="new" response-variable-name="tokenResponse" timeout="20" ignore-error="false">
+        <set-url>@($"{(string)context.Variables["authoization-Server"]}/{(string)context.Variables["tenantId"]}/oauth2/v2.0/token")</set-url>
+        <set-method>POST</set-method>
+        <set-header name="Content-Type" exists-action="override">
+            <value>application/x-www-form-urlencoded</value>
+        </set-header>
+        <set-body>@{
+            return $"client_id={(string)context.Variables["clientId"]}&client_assertion_type=urn:ietf:params:oauth:client-assertion-type:jwt-bearer&client_assertion={(string)context.Variables["client_assertion"]}&grant_type=client_credentials&scope={(string)context.Variables["resource"]}/.default";
+        }</set-body>
+      </send-request>
+      <set-variable name="token" value="@{
+          var responseBody = ((IResponse)context.Variables["tokenResponse"]).Body.As<JObject>();
+          return responseBody["access_token"].ToString();
+      }" />
+      <!-- Add the token received in previous step for backedn -->
+      <set-header name="Authorization" exists-action="override">
+          <value>@{
+              return $"Bearer {(String)context.Variables["token"]}";
+          }</value>
+      </set-header>
+      <!--  Don't expose APIM subscription key to the backend. -->
+      <set-header exists-action="delete" name="Ocp-Apim-Subscription-Key"/>
+  </inbound>
+  <backend>
+    <base />
+  </backend>
+  <outbound>
+    <base />
+  </outbound>
+  <on-error>
+    <base />
+  </on-error>
+</policies>
